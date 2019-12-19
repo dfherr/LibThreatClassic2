@@ -48,7 +48,7 @@ local threatValues = {
 		[6574] = revengeFactor * 24,
 		[7379] = revengeFactor * 34,
 		[11600] = revengeFactor * 44,
-		[11601] = revengeFactor * 54, -- (315 - 319)
+		[11601] = 315,
 		[25288] = 355
 	},
 	heroicStrike = { -- needs work
