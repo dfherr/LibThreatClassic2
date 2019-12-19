@@ -10,9 +10,13 @@ Successor project for [https://github.com/EsreverWoW/LibThreatClassic](https://g
 * fix Maul threat multiplier for Druids
 
 ## TODO
+* Druid cat form
+* Paladin blessings
 * Onyxia boss module
 * Ragnaros boss module
-...
+* Improved voidwalker talent
+* SPELL_HEAL / overheal and absorb handling
+* ...
 
 
 ## License
