@@ -9,7 +9,7 @@ License: LGPL v2.1
 
 Copyright (C) 2019 Dennis-Florian Herr
 
-LibThreatClassic incorporates work covered by the following copyright and permission notice:
+LibThreatClassic2 incorporates work covered by the following copyright and permission notice:
 
 Copyright (C) 2019 Alexander Burt (Es / EsreverWoW)
 Copyright (C) 2007 Chris Heald and the Threat-1.0/Threat-2.0 teams
