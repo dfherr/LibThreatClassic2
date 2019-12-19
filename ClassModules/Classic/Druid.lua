@@ -13,7 +13,6 @@ local UnitGUID = _G.UnitGUID
 local Druid = ThreatLib:GetOrCreateModule("Player")
 
 local faerieFireFactor = 108 / 54	-- NEED MORE INFO
-local maulFactor = 322 / 67			-- NEED MORE INFO
 
 local threatValues = {
 	["cower"] = {
@@ -40,15 +39,6 @@ local threatValues = {
 		[17391] = faerieFireFactor * 42,
 		[17392] = 108,
 	},
-	["maul"] = {
-		[6807] = 18,
-		[6808] = 27,
-		[6809] = 37,
-		[8972] = 49,
-		[9745] = 71,
-		[9880] = 101,
-		[9881] = 128
-	},
 }
 
 local SCHOOL_MASK_NATURE = _G.SCHOOL_MASK_NATURE or 0x08
@@ -56,6 +46,7 @@ local SCHOOL_MASK_ARCANE = _G.SCHOOL_MASK_ARCANE or 0x40
 
 local itemSets = {}
 local swipeIDs = {779, 780, 769, 9754, 9908}
+local maulIDs = {6807, 6808, 6809, 8972, 9745, 9880, 9881}
 local tranquilityIDs = {740, 8918, 9862, 9863}
 
 function Druid:ClassInit()
@@ -87,6 +78,11 @@ function Druid:ClassInit()
 		self.AbilityHandlers[swipeIDs[i]] = self.Swipe
 	end
 	swipeIDs = nil
+
+	for i = 1, #maulIDs do
+		self.AbilityHandlers[maulIDs[i]] = self.Maul
+	end
+	maulIDs = nil
 
 	for i = 1, #tranquilityIDs do
 		self.AbilityHandlers[tranquilityIDs[i]] = self.Tranquility
@@ -157,8 +153,8 @@ function Druid:FaerieFire(spellID, target)
 	self:AddTargetThreat(target, threatValues.faerieFire[spellID] * self:threatMods())
 end
 
-function Druid:Maul(spellID, target)
-	self:AddTargetThreat(target, threatValues.maul[spellID] * 1.75 * self:threatMods())
+function Druid:Maul(amount)
+	return amount * 1.75
 end
 
 function Druid:Swipe(amount)
