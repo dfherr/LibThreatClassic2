@@ -160,7 +160,7 @@ function Warrior:ClassInit()
 
 	-- Ability damage modifiers
 	for k, v in pairs(threatValues.execute) do
-		self.AbilityHandlers[v] = self.Execute
+		self.AbilityHandlers[k] = self.Execute
 	end
 
 	-- Shouts
