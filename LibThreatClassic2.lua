@@ -97,25 +97,10 @@ if (minor and minor => MINOR) then return end
 local ThreatLib = LibStub:NewLibrary(MAJOR, MINOR)
 if not ThreatLib then return end
 
--- Create ThreatLib as an AceAddon for module stuff
-local ThreatLib = LibStub("AceAddon-3.0"):GetAddon("LibThreatClassic2", true) or LibStub("AceAddon-3.0"):NewAddon("LibThreatClassic2")
-LibStub("AceAddon-3.0"):EmbedLibraries(ThreatLib,
-	"AceComm-3.0",
-	"AceEvent-3.0",
-	"AceTimer-3.0",
-	"AceBucket-3.0",
-	"AceSerializer-3.0"
-)
-
--- Manually inject ThreatLib into LibStub
-LibStub.libs[MAJOR] = ThreatLib
-LibStub.minors[MINOR] = MINOR
-
 -- Update this when backwards incompatible changes are made
 local LAST_BACKWARDS_COMPATIBLE_REVISION = 1
 
 local CBH = LibStub:GetLibrary("CallbackHandler-1.0")
--- local CTL = assert(ChatThrottleLib, "LibThreatClassic2 requires ChatThrottleLib")
 
 ThreatLib.eventFrame = ThreatLib.eventFrame or CreateFrame("Frame")
 ThreatLib.callbacks = ThreatLib.callbacks or CBH:New(ThreatLib, nil, nil, false)
