@@ -91,7 +91,7 @@ assert(LibStub, MAJOR .. " requires LibStub")
 
 -- if this version or a newer one is already installed, go no further
 local __, minor = LibStub:GetLibrary(MAJOR, true)
-if (minor and minor => MINOR) then return end
+if (minor and minor >= MINOR) then return end
 
 -- register this addon
 local ThreatLib = LibStub:NewLibrary(MAJOR, MINOR)
