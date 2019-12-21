@@ -429,8 +429,6 @@ function prototype:Boot()
 		self:RegisterEvent("PET_ATTACK_STOP")
 	end
 	self:RegisterEvent("PLAYER_REGEN_ENABLED")
-	-- self:RegisterEvent("PLAYER_ALIVE", "PLAYER_REGEN_ENABLED")
-	-- self:RegisterEvent("PLAYER_UNGHOST", "PLAYER_REGEN_ENABLED")
 	self:RegisterEvent("PLAYER_DEAD", "PLAYER_REGEN_ENABLED")
 	self:RegisterEvent("PLAYER_REGEN_DISABLED")
 	self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
@@ -458,25 +456,19 @@ function prototype:OnDisable()
 		self.timers.PetInCombat = nil
 	end
 
-	--[[
-	self.itemSets 				= del(self.itemSets)
-	self.itemSetsWorn 			= del(self.itemSetsWorn)
-	self.BuffHandlers 			= del(self.BuffHandlers)
-	self.DebuffHandlers 		= del(self.DebuffHandlers)
-	self.CastHandlers 			= del(self.CastHandlers)
-	self.CastLandedHandlers 	= del(self.CastLandedHandlers)
-	self.CastMissHandlers 		= del(self.CastMissHandlers)
-	self.AbilityHandlers 		= del(self.AbilityHandlers)
-	self.schoolThreatMods 		= del(self.schoolThreatMods)
-	self.transactions 			= del(self.transactions)
-	self.targetThreat 			= del(self.targetThreat)
-	self.ExemptGains 			= del(self.ExemptGains)
-	self.MobDebuffHandlers		= del(self.MobDebuffHandlers)
-	self.SpellReflectSources 	= del(self.SpellReflectSources)
-	self.ClassDebuffs 			= del(self.ClassDebuffs)
-	self.ThreatQueries 			= del(self.ThreatQueries)	
-	]]--
-	-- self.booted = false
+	self:ClassDisable()
+
+	self:UnregisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+	self:UnregisterEvent("CHARACTER_POINTS_CHANGED")
+
+	if self.unitType == "pet" then
+		self:UnregisterEvent("PET_ATTACK_START")
+		self:UnregisterEvent("PET_ATTACK_STOP")
+	end
+	self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+	self:UnregisterEvent("PLAYER_DEAD", "PLAYER_REGEN_ENABLED")
+	self:UnregisterEvent("PLAYER_REGEN_DISABLED")
+	self:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 end
 
 local AFFILIATION_IN_GROUP = bit_bor(COMBATLOG_OBJECT_AFFILIATION_PARTY, COMBATLOG_OBJECT_AFFILIATION_RAID, COMBATLOG_OBJECT_AFFILIATION_MINE)

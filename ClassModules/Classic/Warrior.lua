@@ -198,6 +198,10 @@ function Warrior:ClassEnable()
 	self:RegisterEvent("UPDATE_SHAPESHIFT_FORM", "GetStanceThreatMod" )
 end
 
+function Warrior:ClassDisable()
+	self:UnregisterEvent("UPDATE_SHAPESHIFT_FORM", "GetStanceThreatMod" )
+end
+
 function Warrior:ScanTalents()
 	-- Defiance
 	if ThreatLib.Classic then

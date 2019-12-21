@@ -61,6 +61,9 @@ function Mage:ClassEnable()
 	self.passiveThreatModifiers = 1
 end
 
+function Mage:ClassDisable()
+end
+
 function Mage:ScanTalents()
 	if ThreatLib.Classic then
 		self.arcaneThreatMod = 1 - 0.2 * select(5, GetTalentInfo(1, 1))

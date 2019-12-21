@@ -46,6 +46,11 @@ function Hunter:ClassEnable()
 	-- ERR_FEIGN_DEATH_RESISTED
 end
 
+function Hunter:ClassDisable()
+	self:UnregisterEvent("UNIT_SPELLCAST_SENT")
+	self:UnregisterEvent("UI_ERROR_MESSAGE")
+end
+
 function Hunter:DistractingShot(spellID, target)
 	local amt = threatTable["DistractingShot"][spellID]
 	self:AddTargetThreat(target, amt * self:threatMods())

@@ -226,6 +226,12 @@ function ThreatLibNPCModuleCore:OnEnable()
 	self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 end
 
+function ThreatLibNPCModuleCore:OnDisable()
+	self:UnregisterEvent("UPDATE_MOUSEOVER_UNIT")
+	self:UnregisterEvent("PLAYER_TARGET_CHANGED")
+	self:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+end
+
 function ThreatLibNPCModuleCore:RegisterModule(...)
 	local n = select('#', ...)
 	if n < 1 then
@@ -440,6 +446,13 @@ end
 
 function ThreatLibNPCModuleCore.modulePrototype:OnDisable()
 	ThreatLib:Debug("Disabled module: %s", self:GetName())
+
+	self:UnregisterEvent("CHAT_MSG_MONSTER_EMOTE")
+	self:UnregisterEvent("CHAT_MSG_MONSTER_YELL")
+	self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+	self:UnregisterEvent("PLAYER_REGEN_DISABLED")
+	self:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+	
 	ThreatLibNPCModuleCore.activeModule = nil
 	ThreatLibNPCModuleCore.activeModuleID = nil
 end

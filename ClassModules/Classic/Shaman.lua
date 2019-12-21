@@ -69,6 +69,9 @@ function Shaman:ClassEnable()
 	self.passiveThreatModifiers = 1
 end
 
+function Shaman:ClassDisable()
+end
+
 function Shaman:ScanTalents()
 	-- Scan talents
 	if ThreatLib.Classic then

@@ -16,18 +16,6 @@
 	<Script file="ClassModules\Classic\Mage.lua" />
 	<Script file="ClassModules\Classic\Pet.lua" />
 
-	<!--
-	<Script file="ClassModules\TBC\Rogue.lua" />
-	<Script file="ClassModules\TBC\Warrior.lua" />
-	<Script file="ClassModules\TBC\Warlock.lua" />
-	<Script file="ClassModules\TBC\Priest.lua" />
-	<Script file="ClassModules\TBC\Paladin.lua" />
-	<Script file="ClassModules\TBC\Druid.lua" />
-	<Script file="ClassModules\TBC\Hunter.lua" />
-	<Script file="ClassModules\TBC\Shaman.lua" />
-	<Script file="ClassModules\TBC\Mage.lua" />
-	<Script file="ClassModules\TBC\Pet.lua" />
-	-->
 
 	<Script file="ThreatNPCModuleCore.lua" />
 
@@ -36,18 +24,4 @@
 	<Script file="NPCModules\MoltenCore\Shazzrah.lua" />
 	<Script file="NPCModules\Naxxramas\Kelthuzad.lua" />
 	<Script file="NPCModules\Naxxramas\Noth.lua" />
-
-	<!--
-	<Script file="NPCModules\Auchindoun\ShadowLabyrinth\Blackheart.lua" />
-	<Script file="NPCModules\BlackTemple\Illidan.lua" />
-	<Script file="NPCModules\BlackTemple\Supremus.lua" />
-	<Script file="NPCModules\BlackTemple\Council.lua" />
-	<Script file="NPCModules\CoilfangReservoir\SerpentshrineCavern\Hydross.lua" />
-	<Script file="NPCModules\CoilfangReservoir\SerpentshrineCavern\Leotheras.lua" />
-	<Script file="NPCModules\CoilfangReservoir\SerpentshrineCavern\Vashj.lua" />
-	<Script file="NPCModules\Karazhan\Nightbane.lua" />
-	<Script file="NPCModules\Outland\Doomwalker.lua" />
-	<Script file="NPCModules\TempestKeep\TheEye\Solarian.lua" />
-	<Script file="NPCModules\ZulAman\Zuljin.lua" />
-	-->
 </Ui>

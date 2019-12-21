@@ -58,6 +58,9 @@ function Rogue:ClassEnable()
 	self.passiveThreatModifiers = 0.71
 end
 
+function Rogue:ClassDisable()
+end
+
 function Rogue:ScanTalents()
 	-- Scan talents
 	if ThreatLib.Classic then

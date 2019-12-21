@@ -97,6 +97,10 @@ function Druid:ClassEnable()
 	self:RegisterEvent("UPDATE_SHAPESHIFT_FORM", "GetStanceThreatMod")
 end
 
+function Druid:ClassDisable()
+	self:UnregisterEvent("UPDATE_SHAPESHIFT_FORM", "GetStanceThreatMod")
+end
+
 function Druid:ScanTalents()
 	if ThreatLib.Classic then
 		self.feralinstinctMod = 0.03 * select(5, GetTalentInfo(2, 3))

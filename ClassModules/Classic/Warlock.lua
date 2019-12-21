@@ -112,6 +112,9 @@ function Warlock:ClassEnable()
 	self.passiveThreatModifiers = 1
 end
 
+function Warlock:ClassDisable()
+end
+
 function Warlock:MasterDemonologist(action)
 	-- The imp is MAGE. Succubus/Felguard are PALADIN. Voidwalker is WARRIOR.
 	if action == "exist" and UnitExists("pet") and select(2, UnitClass("pet")) == "MAGE" then

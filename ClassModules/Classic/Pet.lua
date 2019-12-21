@@ -103,6 +103,12 @@ function Pet:ClassEnable()
 	self:RegisterEvent("PET_BAR_UPDATE", "ScanPetSkillRanks")
 end
 
+function Pet:ClassDisable()
+	self:UnregisterEvent("LOCALPLAYER_PET_RENAMED")
+	self:UnregisterEvent("UNIT_NAME_UPDATE")
+	self:UnregisterEvent("PET_BAR_UPDATE", "ScanPetSkillRanks")
+end
+
 function Pet:ScanPetSkillRanks()
 	for i = 1, 10 do
 		local name, _, _, _, _ , _, rank = GetPetActionInfo(i)

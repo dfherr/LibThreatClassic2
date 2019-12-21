@@ -233,6 +233,9 @@ function Priest:ClassEnable()
 	self.passiveThreatModifiers = 1
 end
 
+function Priest:ClassDisable()
+end
+
 local shadowAffinityRanks = {0.92, 0.84, 0.75}
 function Priest:ScanTalents()
 	if ThreatLib.Classic then

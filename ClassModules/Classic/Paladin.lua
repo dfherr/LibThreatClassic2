@@ -105,6 +105,9 @@ function Paladin:ClassEnable()
 	self.passiveThreatModifiers = 1
 end
 
+function Paladin:ClassDisable()
+end
+
 function Paladin:ScanTalents()
 	-- Scan talents	
 	if ThreatLib.Classic then
