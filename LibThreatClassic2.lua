@@ -93,6 +93,7 @@ assert(LibStub, MAJOR .. " requires LibStub")
 local __, minor = LibStub:GetLibrary(MAJOR, true)
 if (minor and minor >= MINOR) then return end
 
+
 -- Create ThreatLib as an AceAddon
 local ThreatLib = LibStub("AceAddon-3.0"):GetAddon("LibThreatClassic2", true) or LibStub("AceAddon-3.0"):NewAddon("LibThreatClassic2")
 -- embedd mixin libraries
@@ -193,11 +194,7 @@ local new, del, newHash, newSet = ThreatLib.new, ThreatLib.del, ThreatLib.newHas
 ThreatLib.DebugEnabled = false
 ThreatLib.alwaysRunOnSolo = false
 
----------------------------------------------------------
--- Ace3 Replacement
----------------------------------------------------------
-
----------------------------------------------------------
+------------------------------------------------
 -- Utility Functions
 ---------------------------------------------------------
 local playerName = UnitName("player")
@@ -679,6 +676,7 @@ end
 ---------------------------------------------------------
 -- Boot
 ---------------------------------------------------------
+
 local initialized = false -- hack for upgrading, is local so that each upgrade of the lib runs this
 function ThreatLib:OnInitialize()
 	self:UnregisterAllComm()
@@ -719,6 +717,18 @@ function ThreatLib:OnEnable()
 	end
 end
 
+local activeAddons = {}
+function ThreatLib:RegisterAddon(addon)
+    activeAddons[addon] = true
+    self:PLAYER_ENTERING_WORLD()
+end
+
+function ThreatLib:UnregisterAddon(addon)
+    activeAddons[addon] = nil
+    self:PLAYER_ENTERING_WORLD()
+end
+
+
 ------------------------------------------------------------------------
 -- Handled Events
 ------------------------------------------------------------------------
@@ -728,7 +738,10 @@ function ThreatLib:PLAYER_ENTERING_WORLD(force)
 	end
 	local previousRunning = self.running
 	local inInstance, kind = IsInInstance()
-	if inInstance and (kind == "pvp" or kind == "arena") then
+	if not next(activeAddons) then
+		self:Debug("No addon registered. Not running.")
+		self.running = false
+	elseif inInstance and (kind == "pvp" or kind == "arena") then
 		-- in a battleground that is not AV.
 		self:Debug("Disabling, in a PVP instance")
 		self.running = false

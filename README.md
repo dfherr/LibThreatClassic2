@@ -2,6 +2,19 @@
 
 Successor project for [https://github.com/EsreverWoW/LibThreatClassic](https://github.com/EsreverWoW/LibThreatClassic)
 
+## How to use
+
+Get the latest revision from LibStub and then register your addon as using LibThreatClassic:
+
+```
+local ThreadLib = LibStub("LibThreatClassic2", true)
+if ThreadLib then
+    ThreadLib:RegisterAddon("YourAddon")
+end
+```
+
+`:UnreagisterAddon` can be used to send LibThreatClassic into idle, if no other addon is registered.
+
 ## Added fixes
 
 * Fixed LibStub versioning system (automatically use newest version if multiple LibThreatClassic2 minor versions are available) thanks [@DDCorkum](https://github.com/DDCorkum)
