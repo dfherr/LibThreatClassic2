@@ -106,7 +106,7 @@ end
 function Pet:ClassDisable()
 	self:UnregisterEvent("LOCALPLAYER_PET_RENAMED")
 	self:UnregisterEvent("UNIT_NAME_UPDATE")
-	self:UnregisterEvent("PET_BAR_UPDATE", "ScanPetSkillRanks")
+	self:UnregisterEvent("PET_BAR_UPDATE")
 end
 
 function Pet:ScanPetSkillRanks()

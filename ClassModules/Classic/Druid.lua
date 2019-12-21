@@ -98,7 +98,7 @@ function Druid:ClassEnable()
 end
 
 function Druid:ClassDisable()
-	self:UnregisterEvent("UPDATE_SHAPESHIFT_FORM", "GetStanceThreatMod")
+	self:UnregisterEvent("UPDATE_SHAPESHIFT_FORM")
 end
 
 function Druid:ScanTalents()

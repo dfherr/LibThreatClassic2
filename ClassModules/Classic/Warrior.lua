@@ -199,7 +199,7 @@ function Warrior:ClassEnable()
 end
 
 function Warrior:ClassDisable()
-	self:UnregisterEvent("UPDATE_SHAPESHIFT_FORM", "GetStanceThreatMod" )
+	self:UnregisterEvent("UPDATE_SHAPESHIFT_FORM")
 end
 
 function Warrior:ScanTalents()

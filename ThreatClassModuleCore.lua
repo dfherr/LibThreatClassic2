@@ -466,7 +466,7 @@ function prototype:OnDisable()
 		self:UnregisterEvent("PET_ATTACK_STOP")
 	end
 	self:UnregisterEvent("PLAYER_REGEN_ENABLED")
-	self:UnregisterEvent("PLAYER_DEAD", "PLAYER_REGEN_ENABLED")
+	self:UnregisterEvent("PLAYER_DEAD")
 	self:UnregisterEvent("PLAYER_REGEN_DISABLED")
 	self:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 end
