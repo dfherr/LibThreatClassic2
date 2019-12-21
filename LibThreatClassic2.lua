@@ -86,16 +86,26 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 -- Don't load if not WoW Classic
 if _G.WOW_PROJECT_ID ~= _G.WOW_PROJECT_CLASSIC then return end
 
-local MAJOR, MINOR = "LibThreatClassic2", 0 -- Bump minor on changes, Major is constant lib identifier
+local MAJOR, MINOR = "LibThreatClassic2", 1 -- Bump minor on changes, Major is constant lib identifier
 assert(LibStub, MAJOR .. " requires LibStub")
 
 -- if this version or a newer one is already installed, go no further
 local __, minor = LibStub:GetLibrary(MAJOR, true)
 if (minor and minor >= MINOR) then return end
 
--- register this addon
-local ThreatLib = LibStub:NewLibrary(MAJOR, MINOR)
-if not ThreatLib then return end
+-- Create ThreatLib as an AceAddon
+local ThreatLib = LibStub("AceAddon-3.0"):GetAddon("LibThreatClassic2", true) or LibStub("AceAddon-3.0"):NewAddon("LibThreatClassic2")
+-- embedd mixin libraries
+LibStub("AceAddon-3.0"):EmbedLibraries(ThreatLib,
+	"AceComm-3.0",
+	"AceEvent-3.0",
+	"AceTimer-3.0",
+	"AceBucket-3.0",
+	"AceSerializer-3.0"
+)
+-- Manually inject ThreatLib into LibStub. similar to LibStub:NewLibrary but bypasses major == string assertion
+LibStub.libs[MAJOR] = ThreatLib
+LibStub.minors[MAJOR] = MINOR
 
 -- Update this when backwards incompatible changes are made
 local LAST_BACKWARDS_COMPATIBLE_REVISION = 1
