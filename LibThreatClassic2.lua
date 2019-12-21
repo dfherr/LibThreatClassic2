@@ -440,37 +440,9 @@ function ThreatLib:Log(action, from, to, threat)
 	ThreatLib.callbacks:Fire(action, GetTime(), from, to, threat)
 end
 
-local npcSpells = {
-	-- threat * 0.5
-	[GetSpellInfo(23339)] = 23339,	-- Wing Buffet
-	[GetSpellInfo(10101)] = 10101,	-- Knock Away
-
-	-- threat * 0.75
-	-- [GetSpellInfo(19633)] = 19633,	-- Knock Away
-	[GetSpellInfo(20566)] = 20566,	-- Wrath of Ragnaros
-
-	-- wipe threat
-	[GetSpellInfo(26102)] = 26102,	-- Sand Blast
-
-	-- Other
-	[GetSpellInfo(23138)] = 23138,	-- Gate of Shazzrah
-	[GetSpellInfo(28410)] = 28410,	-- Chains of Kel'Thuzad
-	[GetSpellInfo(29211)] = 29211,	-- Blink
-}
-
-function ThreatLib:GetNPCSpellID(spellName)
-	-- need to write a way to make sure we get the right "Knock Away"
-	-- one is 0.5 and the other is 0.75
-	-- mainly an issue on Onyxia
-	return npcSpells[spellName] or 0
-end
-
 function ThreatLib:GetSpellID(spellName, unit, auraType)
-	-- change localized MELEE string into the appropriate spellID
-	if spellName == MELEE then
-		return 6603
 	-- get spellID from auras
-	elseif auraType and unit then
+	if auraType and unit then
 		if auraType == AURA_TYPE_DEBUFF then
 			return select(10, AuraUtil.FindAuraByName(spellName, unit, "HARMFUL")) or 0
 		else
@@ -692,6 +664,8 @@ end
 
 function ThreatLib:OnEnable()
 	if not initialized then self:OnInitialize() end
+
+	ThreatLib:Debug("Enabling LibThreatClassic module")
 
 	self:UnregisterAllEvents()
 	self:RegisterEvent("PLAYER_REGEN_DISABLED")

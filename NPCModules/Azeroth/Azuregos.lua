@@ -54,6 +54,10 @@ ThreatLib:GetModule("NPCCore"):RegisterModule(AZUREGOS_ID, function(Azuregos)
 
 	function Azuregos:Init()
 		self:RegisterCombatant(AZUREGOS_ID, true)
-		self:RegisterChatEvent("yell", teleport, self:WipeAllRaidThreat())
+		self:RegisterChatEvent("yell", teleport, self.Teleport)
+	end
+
+	function Azuregos:Teleport()
+		self:WipeRaidThreatOnMob(AZUREGOS_ID)
 	end
 end)

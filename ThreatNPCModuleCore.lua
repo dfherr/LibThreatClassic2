@@ -136,29 +136,12 @@ local function ModifyThreatOnTargetGUID(GUID, targetGUID, ...)
 	end
 end
 
-local knockAway = function(mob, target)
-	local npcID = ThreatLib:NPCID(mob)
-	if npcID and npcID == 10184 then -- Onyxia
-		ModifyThreat(mob, target, 0.75, 0) -- set Onyxia threat *0.75 on Knock Away
-	else -- some other NPC
-		ModifyThreat(mob, target, 0.5, 0) -- set threat *0.5 on Knock Away when done by other NPCs
-	end
-end
-
-local wingBuffet = function(mob, target)
-	local npcID = ThreatLib:NPCID(mob)
-	-- Onyxia's Wing Buffet does not affect threat
-	if npcID and npcID == 10184 then return end
-
-	ModifyThreat(mob, target, 0.5, 0)
-end
-
 local halveThreat = function(mob, target) ModifyThreat(mob, target, 0.5, 0) end
 local threatHalveSpellIDs = {
 	-- Wing Buffet
 	-- We have assumed that all Wing Buffet effects reduce threat by half by default
 	-- 18500, -- Onyxia, Wing Buffet, recorded combatlog says this spell doesn't actually land on anyone and only exists in SPELL_CAST_START from Onyxia
-	-- 23339, -- Ebonroc, Firemaw, Flamegor, Wing Buffet, needs testing (commented out for Classic which requires special handling)
+	23339, -- Ebonroc, Firemaw, Flamegor, Wing Buffet, needs testing
 	29905, -- Shadikith the Glider, Wing Buffet
 	37157, -- Triggered by Phoenix-Hawk ability 37165 called Dive, Wing Buffet
 	37319, -- Phoenix-Hawk Hatchling, Wing Buffet
@@ -171,7 +154,7 @@ local threatHalveSpellIDs = {
 	-- Knock Away
 	-- We have assumed that all Knock Away effects reduce threat by half by default
 	-- 21737, Applies aura to periodically do spellID 25778
-	-- 10101, -- Used by 25 mobs (some are bosses), Knock Away (commented out for Classic which requires special handling)
+	10101, -- Used by 25 mobs (some are bosses), Knock Away
 	11130, -- Gurubashi Berserker, Mekgineer Thermaplugg, Qiraji Champion, Teremus the Devourer, Knock Away
 	18670, -- Used by 8 mobs (some are bosses), Knock Away
 	18813, -- Drillmaster Zurok, Earthen Templar, Shadowmoon Weapon Master, Swamplord Musel'ek, Knock Away
@@ -190,13 +173,14 @@ local threatHalveSpellIDs = {
 local threeQuarterThreat = function(mob, target) ModifyThreat(mob, target, 0.75, 0) end
 local threatThreeQuarterSpellIDs = {
 	-- 25778, -- Void Reaver, Fathom Lurker, Fathom Sporebat, Underbog Lord, Knock Away
-	-- 19633, -- Onyxia, Knock Away
-	20566, -- Ragnaros, Wrath of Ragnaros
+	19633, -- Onyxia, Knock Away
+	-- 20566, -- Ragnaros, Wrath of Ragnaros, full wipe in classic
 	40486, -- Gurtogg Bloodboil, Eject (we ignore spellID 40597 which has a stun component rather than a knock back component)
 }
 
 local wipeThreat = function(mob, target) ModifyThreat(mob, target, 0, 0) end
 local threatWipeSpellIDs = {
+	-- 18392, Onyxia Fireball, doesn't work here as only the primary target gets a thread wipe, but this triggers on spell_damage
 	26102, -- Ouro, Sand Blast
 	46288, -- Petrify, Chaos Gazer, Sunwell Plateau
 }
@@ -205,10 +189,6 @@ function ThreatLibNPCModuleCore:OnInitialize()
 	self.activeModule = nil
 	self.activeModuleID = nil
 	self.ModifyThreatSpells = {}
-
-	-- Necessary for WoW Classic
-	self.ModifyThreatSpells[10101] = knockAway -- special handling for Onyxia vs other NPCs
-	self.ModifyThreatSpells[23339] = wingBuffet -- special handling to prevent threat drops from certain NPCs
 
 	for i = 1, #threatHalveSpellIDs do
 		self.ModifyThreatSpells[threatHalveSpellIDs[i]] = halveThreat
@@ -222,12 +202,14 @@ function ThreatLibNPCModuleCore:OnInitialize()
 end
 
 function ThreatLibNPCModuleCore:OnEnable()
+	ThreatLib:Debug("NPCCore module enabled")
 	self:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
 	self:RegisterEvent("PLAYER_TARGET_CHANGED")
 	self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 end
 
 function ThreatLibNPCModuleCore:OnDisable()
+	ThreatLib:Debug("NPCCore module disabled")
 	self:UnregisterEvent("UPDATE_MOUSEOVER_UNIT")
 	self:UnregisterEvent("PLAYER_TARGET_CHANGED")
 	self:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
@@ -283,7 +265,7 @@ local function activateModule(self, mobGUID, localActivation)
 	if not moduleID then return end
 	if self.activeModuleID ~= moduleID then
 		if self.activeModule then
-			self.activeModule:Disable()
+			self.activeModule:OnDisable()
 		end
 
 		local mod = self:GetOrCreateModule(moduleID)
@@ -292,7 +274,7 @@ local function activateModule(self, mobGUID, localActivation)
 		registeredModules[moduleID](mod)
 
 		mod:OnInitialize()
-		mod:Enable()
+		mod:OnEnable()
 
 		if localActivation then
 			ThreatLib:NotifyGroupModuleActivate(mobGUID)
@@ -339,8 +321,6 @@ function ThreatLibNPCModuleCore:COMBAT_LOG_EVENT_UNFILTERED(event, ...)
 			unitID = "pet"
 		end
 		if unitID then
-			-- spellId = ThreatLib.Classic and ThreatLib:GetNPCSpellID(spellName) or spellId
-			spellId = ThreatLib:GetNPCSpellID(spellName) or spellId
 			local func = self.ModifyThreatSpells[spellId]
 			if func then
 				func(sourceGUID, unitID)
@@ -463,9 +443,6 @@ function ThreatLibNPCModuleCore.modulePrototype:COMBAT_LOG_EVENT_UNFILTERED(even
 
 	local timestamp, subEvent, _, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags, spellId, spellName, _, auraType = CombatLogGetCurrentEventInfo()
 
-	-- spellId = ThreatLib.Classic and ThreatLib:GetNPCSpellID(spellName) or spellId
-	spellId = ThreatLib:GetNPCSpellID(spellName) or spellId
-
 	if subEvent == "UNIT_DIED" then
 		if bit_band(destFlags, COMBATLOG_OBJECT_TYPE_NPC) == COMBATLOG_OBJECT_TYPE_NPC then
 			local npc_id = ThreatLib:NPCID(destGUID)
@@ -493,6 +470,7 @@ function ThreatLibNPCModuleCore.modulePrototype:COMBAT_LOG_EVENT_UNFILTERED(even
 	end
 
 	if self.SpellHandlers[subEvent] then
+		-- ThreatLib:Debug("spell cast success %s %s %s %s %s", sourceGUID, destGUID, spellId, GetSpellInfo(spellId))
 		local func = self.SpellHandlers[subEvent][spellId]
 		if func then
 			func(self, sourceGUID, destGUID, spellId)
