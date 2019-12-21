@@ -517,24 +517,6 @@ ThreatLib.BLACKLIST_MOB_IDS = {
 	[17967] = true,		-- Crypt Scarabs, used by Crypt Fiends in Hyjal
 	[10577] = true,		-- More scarabs
 
-	-- Karazhan
-	[17267] = true,		-- Fiendish Imp (Illhoof)
-	[17535] = true,		-- Dorothee ("Wizard of Oz") (no aggro table)
-
-	-- Magister's Terrace
-	[24553] = true,		-- Apoko
-	[24554] = true,		-- Eramas Brightblaze
-	[24555] = true,		-- Garaxxas
-	[24556] = true,		-- Zelfan
-	[24557] = true,		-- Kagani Nightstrike 
-	[24558] = true,		-- Ellris Duskhallow 
-	[24559] = true,		-- Warlord Salaris
-	[24560] = true,		-- Priestess Delrissa
-	[24561] = true,		-- Yazzai
-
-	-- Serpentshrine Cavern
-	[22140] = true,		-- Toxic Spore Bats
-
 	-- AQ40
 	[15630] = true,		-- Spawn of Fankriss
 
@@ -549,23 +531,6 @@ ThreatLib.BLACKLIST_MOB_IDS = {
 	-- World
 	[19833] = true,		-- Snake Trap snakes
 	[19921] = true,		-- Snake Trap snakes
-
-	-- Black Temple
-	[22841] = true,		-- Shade of Akama
-	[22929] = true,		-- Greater Shadowfiend, Summon by Illidari Nightlord
-	[23398] = true,		-- Angered Soul Fragment
-	[23418] = true,		-- Essence of Suffering (Essence of Soul)
-	[23469] = true,		-- Enslaved Soul (Essence of Soul)
-	[23421] = true,		-- Ashtongue Channeler (Shade of Akama)
-	[23215] = true,		-- Ashtongue Sorcerer (Shade of Akama)
-	[23111] = true,		-- Shadowy Construct (Teron Gorefiend)
-	[23375] = true,		-- Shadow Demon (Illidan)
-	[23254] = true,		-- Fel Geyser (Gurtogg Bloodboil)
-
-	-- Sunwell
-	[25214] = true,		-- Shadow Image (Eredar Twins)
-	[25744] = true,		-- Dark Fiend (M'uru)
-	[25502] = true,		-- Shield Orb (Kil'jaeden)
 
 	-- [22144] = true,	-- Test, comment out for production 
 }
