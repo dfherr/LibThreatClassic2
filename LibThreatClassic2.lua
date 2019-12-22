@@ -29,7 +29,7 @@ License along with this library; if not, write to the Free Software
 Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 -------------------------------------------------------------------------------]]
 --[[-----------------------------------------------------------------------------
-Name: LibThreatClassic2
+Name: ThreatClassic-1.0
 Revision: $Revision: 10 $
 Author(s): Es (EsreverWoW)
 Website: https://github.com/EsreverWoW/LibThreatClassic
@@ -39,7 +39,7 @@ License: LGPL v2.1
 
 Copyright (C) 2019 Alexander Burt (Es / EsreverWoW)
 
-LibThreatClassic2 incorporates work covered by the following copyright and permission notice:
+ThreatClassic-1.0 incorporates work covered by the following copyright and permission notice:
 
 Copyright (C) 2007 Chris Heald and the Threat-1.0/Threat-2.0 teams
 
