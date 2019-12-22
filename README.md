@@ -24,6 +24,8 @@ end
 * Druid catform threat reduction
 * Druid Feral instincts fixed
 * Warrior defiance 3% instead of 5% per talent point
+* SPELL_HEAL / overheal and absorb handling
+* Fixed Instance group distribution errors
 
 ## TODO
 
@@ -31,7 +33,6 @@ end
 * Onyxia boss module
 * Ragnaros boss module
 * Improved voidwalker talent
-* SPELL_HEAL / overheal and absorb handling
 * ...
 
 
