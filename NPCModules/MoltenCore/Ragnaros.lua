@@ -7,7 +7,7 @@ local WRATH_ID = 20566
 ThreatLib:GetModule("NPCCore"):RegisterModule(RAGNAROS_ID, function(Ragnaros)
 	function Ragnaros:Init()
 		self:RegisterCombatant(RAGNAROS_ID, true)
-		self:RegisterSpellHandler("SPELL_CAST_SUCCESS", self.Wrath, WRATH_ID)
+		self:RegisterSpellHandler("SPELL_CAST_SUCCESS", RAGNAROS_ID, WRATH_ID, self.Wrath)
 	end
 
 	function Ragnaros:Wrath()

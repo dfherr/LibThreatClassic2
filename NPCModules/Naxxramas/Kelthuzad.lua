@@ -8,7 +8,7 @@ local CHAINS_ID = 28410
 ThreatLib:GetModule("NPCCore"):RegisterModule(KEL_THUZAD_ID, function(KelThuzad)
 	function KelThuzad:Init()
 		self:RegisterCombatant(KEL_THUZAD_ID, true)
-		self:RegisterSpellHandler("SPELL_CAST_SUCCESS", self.Chains, CHAINS_ID)
+		self:RegisterSpellHandler("SPELL_CAST_SUCCESS", KEL_THUZAD_ID, CHAINS_ID, self.Chains)
 	end
 
 	function KelThuzad:Chains()

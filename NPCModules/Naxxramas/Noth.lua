@@ -8,10 +8,10 @@ local BLINK_ID = 29211
 ThreatLib:GetModule("NPCCore"):RegisterModule(NOTH_ID, function(Noth)
 	function Noth:Init()
 		self:RegisterCombatant(NOTH_ID, true)
-		self.buffGains[BLINK_ID] = self.Wipe -- FIXME: May not work in Classic
+		self:RegisterBuffGainsHandler(NOTH_ID, BLINK_ID, self.Blink)
 	end
 
-	function Noth:Wipe()
+	function Noth:Blink()
 		self:WipeRaidThreatOnMob(NOTH_ID)
 	end
 end)

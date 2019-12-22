@@ -105,6 +105,7 @@ local select = _G.select
 local error = _G.error
 local InCombatLockdown = _G.InCombatLockdown
 local UnitGUID = _G.UnitGUID
+local UnitIsDead = _G.UnitIsDead
 local tostring = _G.tostring
 
 ThreatLibNPCModuleCore.modulePrototype = {}
@@ -114,105 +115,21 @@ local registeredModules = {}
 local moduleValueOverrides = {}
 local moduleValues = {}
 
-local function ModifyThreat(guid, target, multi, add)
-	local module
-	if target == "player" then
-		module = ThreatLib:GetModule("Player")
-	elseif target == "pet" then
-		module = ThreatLib:GetModule("Pet")
-	end
-	if module and module.targetThreat[guid] then
-		module:MultiplyTargetThreat(guid, multi)
-		module:AddTargetThreat(guid, add)
-	end
-end
-
-local function ModifyThreatOnTargetGUID(GUID, targetGUID, ...)
-	if targetGUID == ThreatLib:GetModule("Player").unitGUID then
-		ModifyThreat(GUID, "player", ...)
-	end
-	if targetGUID == ThreatLib:GetModule("Pet").unitGUID then
-		ModifyThreat(GUID, "pet", ...)
-	end
-end
-
-local halveThreat = function(mob, target) ModifyThreat(mob, target, 0.5, 0) end
-local threatHalveSpellIDs = {
-	-- Wing Buffet
-	-- We have assumed that all Wing Buffet effects reduce threat by half by default
-	-- 18500, -- Onyxia, Wing Buffet, recorded combatlog says this spell doesn't actually land on anyone and only exists in SPELL_CAST_START from Onyxia
-	23339, -- Ebonroc, Firemaw, Flamegor, Wing Buffet, needs testing
-	29905, -- Shadikith the Glider, Wing Buffet
-	37157, -- Triggered by Phoenix-Hawk ability 37165 called Dive, Wing Buffet
-	37319, -- Phoenix-Hawk Hatchling, Wing Buffet
-	41572, -- Used by nothing known, Wing Buffet
-	32914, -- Used by 7 common mobs in Outlands, Wing Buffet
-	38110, -- Cobalt Serpent, Wing Buffet
-	--31475, 38593, -- Epoch Hunter/Temporus, Wing Buffet, we think their Wing Buffet doesn't reduce threat
-	--29328, -- Sapphiron's Wing Buffet, this spell is not used by Sapphiron
-
-	-- Knock Away
-	-- We have assumed that all Knock Away effects reduce threat by half by default
-	-- 21737, Applies aura to periodically do spellID 25778
-	10101, -- Used by 25 mobs (some are bosses), Knock Away
-	11130, -- Gurubashi Berserker, Mekgineer Thermaplugg, Qiraji Champion, Teremus the Devourer, Knock Away
-	18670, -- Used by 8 mobs (some are bosses), Knock Away
-	18813, -- Drillmaster Zurok, Earthen Templar, Shadowmoon Weapon Master, Swamplord Musel'ek, Knock Away
-	18945, -- Molten Giant, Cyrukh the Firelord, Knock Away
-	20686, -- Used by nothing known, Knock Away
-	23382, -- Used by nothing known, Knock Away
-	31389, -- Luzran, Rokdar the Sundered Lord, Knock Away
-	32959, -- Cragskaar, Goliathon, Gurok the Usurper, Knock Away
-	36512, -- Wrath-Scryer Soccothrates, Knock Away
-	37102, -- Crystalcore Devastator, Knock Away
-	40434, -- Gezzarak the Huntress, Knock Away
-
-	33707, -- Blackheart the Inciter, War Stomp
-}
-
-local threeQuarterThreat = function(mob, target) ModifyThreat(mob, target, 0.75, 0) end
-local threatThreeQuarterSpellIDs = {
-	-- 25778, -- Void Reaver, Fathom Lurker, Fathom Sporebat, Underbog Lord, Knock Away
-	19633, -- Onyxia, Knock Away
-	-- 20566, -- Ragnaros, Wrath of Ragnaros, full wipe in classic
-	40486, -- Gurtogg Bloodboil, Eject (we ignore spellID 40597 which has a stun component rather than a knock back component)
-}
-
-local wipeThreat = function(mob, target) ModifyThreat(mob, target, 0, 0) end
-local threatWipeSpellIDs = {
-	-- 18392, Onyxia Fireball, doesn't work here as only the primary target gets a thread wipe, but this triggers on spell_damage
-	26102, -- Ouro, Sand Blast
-	46288, -- Petrify, Chaos Gazer, Sunwell Plateau
-}
-
 function ThreatLibNPCModuleCore:OnInitialize()
 	self.activeModule = nil
 	self.activeModuleID = nil
-	self.ModifyThreatSpells = {}
-
-	for i = 1, #threatHalveSpellIDs do
-		self.ModifyThreatSpells[threatHalveSpellIDs[i]] = halveThreat
-	end
-	for i = 1, #threatThreeQuarterSpellIDs do
-		self.ModifyThreatSpells[threatThreeQuarterSpellIDs[i]] = threeQuarterThreat
-	end
-	for i = 1, #threatWipeSpellIDs do
-		self.ModifyThreatSpells[threatWipeSpellIDs[i]] = wipeThreat
-	end
 end
 
 function ThreatLibNPCModuleCore:OnEnable()
 	ThreatLib:Debug("NPCCore module enabled")
 	self:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
 	self:RegisterEvent("PLAYER_TARGET_CHANGED")
-	self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 end
 
 function ThreatLibNPCModuleCore:OnDisable()
 	ThreatLib:Debug("NPCCore module disabled")
 	self:UnregisterEvent("UPDATE_MOUSEOVER_UNIT")
 	self:UnregisterEvent("PLAYER_TARGET_CHANGED")
-	self:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
 end
 
 function ThreatLibNPCModuleCore:RegisterModule(...)
@@ -294,38 +211,18 @@ function ThreatLibNPCModuleCore:ActivateModule(mobGUID)
 end
 
 function ThreatLibNPCModuleCore:UPDATE_MOUSEOVER_UNIT()
+	local dead = UnitIsDead("mouseover")
 	local guid = UnitGUID("mouseover")
-	if guid then
+	if guid and not dead then
 		activateModule(self, guid, true)
 	end
 end
 
 function ThreatLibNPCModuleCore:PLAYER_TARGET_CHANGED()
+	local dead = UnitIsDead("target")
 	local guid = UnitGUID("target")
-	if guid then
+	if guid and not dead then
 		activateModule(self, guid, true)
-	end
-end
-
-function ThreatLibNPCModuleCore:COMBAT_LOG_EVENT_UNFILTERED(event, ...)
-	if not InCombatLockdown() then return end
-
-	local timestamp, subEvent, _, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags, spellId, spellName, _, missType = CombatLogGetCurrentEventInfo()
-
-	-- fully resisted spells apparently still perform threat mods, so SPELL_MISS is needed in Classic
-	if (subEvent == "SPELL_DAMAGE" or (subEvent == "SPELL_MISS" and (missType == "RESIST" or missType == "ABSORB"))) and bit_band(sourceFlags, REACTION_ATTACKABLE) ~= 0 and bit_band(sourceFlags, COMBATLOG_OBJECT_TYPE_NPC) == COMBATLOG_OBJECT_TYPE_NPC then
-		local unitID = nil
-		if bit_band(destFlags, COMBATLOG_FILTER_ME) == COMBATLOG_FILTER_ME then
-			unitID = "player"
-		elseif bit_band(destFlags, COMBATLOG_FILTER_MY_PET) == COMBATLOG_FILTER_MY_PET then
-			unitID = "pet"
-		end
-		if unitID then
-			local func = self.ModifyThreatSpells[spellId]
-			if func then
-				func(sourceGUID, unitID)
-			end
-		end
 	end
 end
 
@@ -334,13 +231,12 @@ function ThreatLibNPCModuleCore.modulePrototype:OnInitialize()
 		self.chatEvents = {}
 		self.encounterEnemies = {}
 		self.SpellHandlers = {}
+		self.SpellDamageHandlers = {}
 		self.buffGains = {}
 		self.buffFades = {}
 		self.translations = {}
 		self.timers = {}
 		self:Init()
-		self.ModifyThreat = ModifyThreat
-		self.ModifyThreatOnTargetGUID = ModifyThreatOnTargetGUID
 		self.initted = true
 	end
 end
@@ -365,27 +261,89 @@ function ThreatLibNPCModuleCore.modulePrototype:UnregisterTranslations()
 	translations[self.name] = nil
 end
 
-function ThreatLibNPCModuleCore.modulePrototype:RegisterSpellHandler(event, func, ...)
+function ThreatLibNPCModuleCore.modulePrototype:RegisterSpellHandler(event, npcId, spellId, func)
 	if type(event) ~= "string" or event:sub(1,6) ~= "SPELL_" then
 		error("First parameter to :RegisterSpellHandler must be a SPELL_* event, got " .. tostring(event), 2)
 	end
 	if type(func) ~= "function" then
 		error("Second parameter to :RegisterSpellHandler must be a function, got " .. type(func), 2)
 	end
+	assert(type(npcId) == "number", "npcId must be a number")
+	assert(type(spellId) == "number", "spellId must be a number")
+
+	-- convert spellId to spellName and use together with npcIds as  classic does
+	-- not provide spellId in combat log events to hide spell ranks from addons
+	local spellName = GetSpellInfo(spellId)
+	assert(spellName, "No spell found for registered spellId")
 
 	if not self.SpellHandlers[event] then
 		self.SpellHandlers[event] = {}
 	end
-
-	local handlers = self.SpellHandlers[event]
-
-	for i = 1, select("#", ...) do
-		local val = select(i, ...)
-		if type(val) ~= "number" then
-			error(("Invalid spell registered: %s"):format(val))
-		end
-		handlers[val] = func
+	local npcHandlers = self.SpellHandlers[event]
+	if not npcHandlers[npcId] then
+		npcHandlers[npcId] = {}
 	end
+	npcHandlers[npcId][spellName] = func
+	
+end
+
+-- special handling as resists and absorbs can also reduce threat
+function ThreatLibNPCModuleCore.modulePrototype:RegisterSpellDamageHandler(npcId, spellId, func)
+	if type(func) ~= "function" then
+		error("Second parameter to :RegisterSpellDamageHandler must be a function, got " .. type(func), 2)
+	end
+	assert(type(npcId) == "number", "npcId must be a number")
+	assert(type(spellId) == "number", "spellId must be a number")
+	-- convert spellId to spellName and use together with npcIds as  classic does
+	-- not provide spellId in combat log events to hide spell ranks from addons
+	local spellName = GetSpellInfo(spellId)
+	assert(spellName, "No spell found for registered spellId")
+
+	if not self.SpellDamageHandlers[npcId] then
+		self.SpellDamageHandlers[npcId] = {}
+	end
+	local handlers = self.SpellDamageHandlers[npcId]
+
+	ThreatLib:Debug("spell damage handler registered")
+	handlers[spellName] = func
+end
+
+function ThreatLibNPCModuleCore.modulePrototype:RegisterBuffGainsHandler(npcId, spellId, func)
+	if type(func) ~= "function" then
+		error("Second parameter to :RegisterBuffHandler must be a function, got " .. type(func), 2)
+	end
+	assert(type(npcId) == "number", "npcId must be a number")
+	assert(type(spellId) == "number", "spellId must be a number")
+	-- convert spellId to spellName and use together with npcIds as  classic does
+	-- not provide spellId in combat log events to hide spell ranks from addons
+	local spellName = GetSpellInfo(spellId)
+	assert(spellName, "No spell found for registered spellId")
+
+	if not self.buffGains[npcId] then
+		self.buffGains[npcId] = {}
+	end
+
+	local handlers = self.buffGains[npcId]
+	handlers[spellName] = func
+end
+
+function ThreatLibNPCModuleCore.modulePrototype:RegisterBuffFadesHandler(npcId, spellId, func)
+	if type(func) ~= "function" then
+		error("Second parameter to :RegisterBuffHandler must be a function, got " .. type(func), 2)
+	end
+	assert(type(npcId) == "number", "npcId must be a number")
+	assert(type(spellId) == "number", "spellId must be a number")
+	-- convert spellId to spellName and use together with npcIds as  classic does
+	-- not provide spellId in combat log events to hide spell ranks from addons
+	local spellName = GetSpellInfo(spellId)
+	assert(spellName, "No spell found for registered spellId")
+
+	if not self.buffFades[npcId] then
+		self.buffFades[npcId] = {}
+	end
+
+	local handlers = self.buffFades[npcId]
+	handlers[spellName] = func
 end
 
 function ThreatLibNPCModuleCore.modulePrototype:GetTranslation(string)
@@ -442,39 +400,70 @@ function ThreatLibNPCModuleCore.modulePrototype:COMBAT_LOG_EVENT_UNFILTERED(even
 	if not InCombatLockdown() then return end
 
 	local timestamp, subEvent, _, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags, spellId, spellName, _, auraType = CombatLogGetCurrentEventInfo()
-
+	local missType = auraType
 	if subEvent == "UNIT_DIED" then
 		if bit_band(destFlags, COMBATLOG_OBJECT_TYPE_NPC) == COMBATLOG_OBJECT_TYPE_NPC then
-			local npc_id = ThreatLib:NPCID(destGUID)
-			local func = self.encounterEnemies[npc_id]
+			local npcId = ThreatLib:NPCID(destGUID)
+			local func = self.encounterEnemies[npcId]
 			if func then
-				func(self, npc_id, destGUID, destName, sourceName, sourceGUID)
+				func(self, npcId, destGUID, destName, sourceName, sourceGUID)
 			end
 		end
 	elseif subEvent == "SPELL_AURA_REMOVED" then
 		if bit_band(destFlags, COMBATLOG_OBJECT_TYPE_NPC) == COMBATLOG_OBJECT_TYPE_NPC and auraType == AURA_TYPE_BUFF then
-			local npc_id = ThreatLib:NPCID(destGUID)
-			local func = self.buffFades[spellId]
-			if func then
-				func(self, npc_id)
+			local npcId = ThreatLib:NPCID(destGUID)
+			local spellName = GetSpellInfo(spellId)
+			if self.buffFades[npcId] and spellName then
+				local func = self.buffFades[npcId][spellName]
+				if func then
+					func(self, npcId)
+				end
 			end
 		end
 	elseif subEvent == "SPELL_AURA_APPLIED" then
 		if bit_band(destFlags, COMBATLOG_OBJECT_TYPE_NPC) == COMBATLOG_OBJECT_TYPE_NPC and auraType == AURA_TYPE_BUFF then
-			local npc_id = ThreatLib:NPCID(destGUID)
-			local func = self.buffGains[spellId]
+			local npcId = ThreatLib:NPCID(destGUID)
+			local spellName = GetSpellInfo(spellId)
+			if self.buffGains[npcId] and spellName then
+				local func = self.buffGains[npcId][spellName]
+				if func then
+					func(self, npcId)
+				end
+			end
+			
+		end
+	-- fully resisted spells apparently still perform threat mods, so SPELL_MISS is needed in Classic
+	elseif (subEvent == "SPELL_DAMAGE" or (subEvent == "SPELL_MISSED" and (missType == "RESIST" or missType == "ABSORB"))) and bit_band(sourceFlags, REACTION_ATTACKABLE) ~= 0 and bit_band(sourceFlags, COMBATLOG_OBJECT_TYPE_NPC) == COMBATLOG_OBJECT_TYPE_NPC then
+		local npcId = ThreatLib:NPCID(sourceGUID)
+		local unitID = nil
+		if bit_band(destFlags, COMBATLOG_FILTER_ME) == COMBATLOG_FILTER_ME then
+			unitID = "player"
+		elseif bit_band(destFlags, COMBATLOG_FILTER_MY_PET) == COMBATLOG_FILTER_MY_PET then
+			unitID = "pet"
+		end
+		if unitID and self.SpellDamageHandlers[npcId] then
+			local func = self.SpellDamageHandlers[npcId][spellName]
 			if func then
-				func(self, npc_id)
+				func(self, sourceGUID, unitID)
 			end
 		end
 	end
 
 	if self.SpellHandlers[subEvent] then
-		-- ThreatLib:Debug("spell cast success %s %s %s %s %s", sourceGUID, destGUID, spellId, GetSpellInfo(spellId))
-		local func = self.SpellHandlers[subEvent][spellId]
-		if func then
-			func(self, sourceGUID, destGUID, spellId)
-		end
+		local npcId = ThreatLib:NPCID(sourceGUID)
+		if self.SpellHandlers[subEvent][npcId] then
+			local unitID = nil
+			if bit_band(destFlags, COMBATLOG_FILTER_ME) == COMBATLOG_FILTER_ME then
+				unitID = "player"
+			elseif bit_band(destFlags, COMBATLOG_FILTER_MY_PET) == COMBATLOG_FILTER_MY_PET then
+				unitID = "pet"
+			end
+			-- ThreatLib:Debug("spell cast success %s %s %s %s %s", sourceGUID, destGUID, spellId, GetSpellInfo(spellId))
+			local func = self.SpellHandlers[subEvent][npcId][spellName]
+			if func then
+				func(self, sourceGUID, unitID)
+			end
+		end	
 	end
 end
 
@@ -565,7 +554,7 @@ end
 
 function ThreatLibNPCModuleCore.modulePrototype:BossDeath()
 	self:ResetFight()
-	self:Disable()
+	self:OnDisable()
 end
 
 function ThreatLibNPCModuleCore.modulePrototype:RegisterChatEvent(eventType, text, callback)
@@ -600,4 +589,26 @@ end
 
 function ThreatLibNPCModuleCore.modulePrototype:WipeAllRaidThreat()
 	ThreatLib:RequestThreatClear()
+end
+
+function ThreatLibNPCModuleCore.modulePrototype:ModifyThreat(guid, target, multi, add)
+	local module
+	if target == "player" then
+		module = ThreatLib:GetModule("Player")
+	elseif target == "pet" then
+		module = ThreatLib:GetModule("Pet")
+	end
+	if module and module.targetThreat[guid] then
+		module:MultiplyTargetThreat(guid, multi)
+		module:AddTargetThreat(guid, add)
+	end
+end
+
+function ThreatLibNPCModuleCore.modulePrototype:ModifyThreatOnTargetGUID(GUID, targetGUID, ...)
+	if targetGUID == ThreatLib:GetModule("Player").unitGUID then
+		ModifyThreat(GUID, "player", ...)
+	end
+	if targetGUID == ThreatLib:GetModule("Pet").unitGUID then
+		ModifyThreat(GUID, "pet", ...)
+	end
 end

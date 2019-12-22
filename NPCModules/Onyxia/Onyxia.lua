@@ -7,11 +7,10 @@ local FIREBALL_ID = 18392
 ThreatLib:GetModule("NPCCore"):RegisterModule(ONYXIA_ID, function(Onyxia)
 	function Onyxia:Init()
         self:RegisterCombatant(ONYXIA_ID, true)
-		self:RegisterSpellHandler("SPELL_CAST_SUCCESS", self.Fireball, FIREBALL_ID)
+		self:RegisterSpellHandler("SPELL_CAST_SUCCESS", ONYXIA_ID, FIREBALL_ID, self.Fireball)
 	end
 
-    function Onyxia:Fireball(sourceGUID, destGUID, spellId)
-        -- TODO wipe threat on target
-        -- ThreatLib:Debug("oyxia fireball triggered", sourceGUID, destGUID, spellId)
+    function Onyxia:Fireball(sourceGUID, unitId)
+        self:ModifyThreat(sourceGUID, unitId, 0, 0)
 	end
 end)
