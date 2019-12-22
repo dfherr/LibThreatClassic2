@@ -34,10 +34,10 @@ end
 * Fixed Instance group distribution errors
 * Onyxia boss module
 * Ragnaros boss module
+* Paladin blessings
 
 ## TODO
 
-* Paladin blessings
 * Improved voidwalker talent
 * ...
 

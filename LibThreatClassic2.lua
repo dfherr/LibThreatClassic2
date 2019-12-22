@@ -139,6 +139,7 @@ local setmetatable = _G.setmetatable
 local GetRaidRosterInfo = _G.GetRaidRosterInfo
 local GetNumGroupMembers = _G.GetNumGroupMembers
 local UnitIsGroupLeader = _G.UnitIsGroupLeader
+local GetInstanceInfo = _G.GetInstanceInfo
 local IsInRaid = _G.IsInRaid
 local select = _G.select
 local next = _G.next
@@ -704,7 +705,9 @@ function ThreatLib:PLAYER_ENTERING_WORLD(force)
 	end
 	local previousRunning = self.running
 	local inInstance, kind = IsInInstance()
-	if inInstance and (kind == "pvp" or kind == "arena") then
+	local instance_id = select(8, GetInstanceInfo())
+	local ALTERAC_VALLEY_INSTANCE_ID = 30
+	if inInstance and (kind == "pvp" or kind == "arena") and instance_id ~= ALTERAC_VALLEY_INSTANCE_ID then
 		-- in a battleground that is not AV.
 		self:Debug("Disabling, in a PVP instance")
 		self.running = false
