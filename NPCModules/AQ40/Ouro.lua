@@ -1,0 +1,16 @@
+local ThreatLib = LibStub and LibStub("LibThreatClassic2", true)
+if not ThreatLib then return end
+
+local OURO_ID = 14601
+local SAND_BLAST_ID = 26102
+
+ThreatLib:GetModule("NPCCore"):RegisterModule(OURO_ID, function(Ouro)
+	function Ouro:Init()
+        self:RegisterCombatant(OURO_ID, true)
+		self:RegisterSpellDamageHandler(OURO_ID, SAND_BLAST_ID, self.SandBlast)
+	end
+
+	function Ouro:SandBlast(sourceGUID, unitId)
+        self:ModifyThreat(sourceGUID, unitId, 0, 0)
+	end
+end)
