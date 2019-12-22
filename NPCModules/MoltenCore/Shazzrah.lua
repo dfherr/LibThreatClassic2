@@ -8,7 +8,7 @@ local GATE_ID = 23138
 ThreatLib:GetModule("NPCCore"):RegisterModule(SHAZZRAH_ID, function(Shazzrah)
 	function Shazzrah:Init()
 		self:RegisterCombatant(SHAZZRAH_ID, true)
-		self:RegisterSpellHandler("SPELL_CAST_SUCCESS", self.Gate, GATE_ID)
+		self:RegisterSpellHandler("SPELL_CAST_SUCCESS", SHAZZRAH_ID, GATE_ID, self.Gate)
 	end
 
 	function Shazzrah:Gate()
