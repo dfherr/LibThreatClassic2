@@ -86,6 +86,8 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 -- Don't load if not WoW Classic
 if _G.WOW_PROJECT_ID ~= _G.WOW_PROJECT_CLASSIC then return end
 
+_G.THREATLIB_LOAD_MODULES = false -- don't load modules unless we update this file
+
 local MAJOR, MINOR = "LibThreatClassic2", 1 -- Bump minor on changes, Major is constant lib identifier
 assert(LibStub, MAJOR .. " requires LibStub")
 
@@ -107,6 +109,8 @@ LibStub("AceAddon-3.0"):EmbedLibraries(ThreatLib,
 -- Manually inject ThreatLib into LibStub. similar to LibStub:NewLibrary but bypasses major == string assertion
 LibStub.libs[MAJOR] = ThreatLib
 LibStub.minors[MAJOR] = MINOR
+
+_G.THREATLIB_LOAD_MODULES = true 
 
 -- Update this when backwards incompatible changes are made
 local LAST_BACKWARDS_COMPATIBLE_REVISION = 1
