@@ -287,7 +287,8 @@ function ThreatLibNPCModuleCore.modulePrototype:RegisterSpellHandler(event, npcI
 	
 end
 
--- special handling as resists and absorbs can also reduce threat
+-- this is used when threat is reduced by being hit by a spell rather than being the target of a spell
+-- it also needs special handling as resists and absorbs can also reduce threat
 function ThreatLibNPCModuleCore.modulePrototype:RegisterSpellDamageHandler(npcId, spellId, func)
 	if type(func) ~= "function" then
 		error("Second parameter to :RegisterSpellDamageHandler must be a function, got " .. type(func), 2)
