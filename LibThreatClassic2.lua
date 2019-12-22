@@ -501,8 +501,6 @@ ThreatLib.WowVersion, ThreatLib.WowMajor, ThreatLib.WowMinor = strsplit(".", tos
 ThreatLib.WowVersion, ThreatLib.WowMajor, ThreatLib.WowMinor = tonumber(ThreatLib.WowVersion), tonumber(ThreatLib.WowMajor), tonumber(ThreatLib.WowMinor)
 ThreatLib.inCombat = InCombatLockdown
 
--- C_ChatInfo.RegisterAddonMessagePrefix(ThreatLib.prefix)
-
 ---------------------------------------------------------
 -- NPC ID Blacklist
 ---------------------------------------------------------
@@ -723,18 +721,6 @@ function ThreatLib:OnEnable()
 	end
 end
 
-local activeAddons = {}
-function ThreatLib:RegisterAddon(addon)
-    activeAddons[addon] = true
-    self:PLAYER_ENTERING_WORLD()
-end
-
-function ThreatLib:UnregisterAddon(addon)
-    activeAddons[addon] = nil
-    self:PLAYER_ENTERING_WORLD()
-end
-
-
 ------------------------------------------------------------------------
 -- Handled Events
 ------------------------------------------------------------------------
@@ -744,10 +730,7 @@ function ThreatLib:PLAYER_ENTERING_WORLD(force)
 	end
 	local previousRunning = self.running
 	local inInstance, kind = IsInInstance()
-	if not next(activeAddons) then
-		self:Debug("No addon registered. Not running.")
-		self.running = false
-	elseif inInstance and (kind == "pvp" or kind == "arena") then
+	if inInstance and (kind == "pvp" or kind == "arena") then
 		-- in a battleground that is not AV.
 		self:Debug("Disabling, in a PVP instance")
 		self.running = false
