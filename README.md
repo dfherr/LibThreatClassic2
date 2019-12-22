@@ -9,7 +9,7 @@ To provide Threat data to over players just include and load the lib as part of 
 To start using the lib to display threat data get the latest revision from LibStub and get a units current threat:
 
 ```
-local ThreatLib = LibStub:GetLibrary ("LibThreatClassic2")
+local ThreatLib = LibStub:GetLibrary("LibThreatClassic2")
 
 local _UnitThreatSituation = function (unit, mob)
     return ThreatLib:UnitThreatSituation (unit, mob)
@@ -32,12 +32,12 @@ end
 * Warrior defiance 3% instead of 5% per talent point
 * SPELL_HEAL / overheal and absorb handling
 * Fixed Instance group distribution errors
+* Onyxia boss module
+* Ragnaros boss module
 
 ## TODO
 
 * Paladin blessings
-* Onyxia boss module
-* Ragnaros boss module
 * Improved voidwalker talent
 * ...
 

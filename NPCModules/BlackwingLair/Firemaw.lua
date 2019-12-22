@@ -1,3 +1,4 @@
+if not _G.THREATLIB_LOAD_MODULES then return end -- only load if LibThreatClassic2.lua allows it
 local ThreatLib = LibStub and LibStub("LibThreatClassic2", true)
 if not ThreatLib then return end
 
