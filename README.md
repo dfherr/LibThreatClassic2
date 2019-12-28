@@ -1,4 +1,4 @@
-# LibThreatClassic2
+# LibThreatClassic2 [!["Open Issues"](https://img.shields.io/github/issues-raw/dfherr/LibThreatClassic2.svg)](https://github.com/dfherr/LibThreatClassic2/issues)
 
 Successor project for [https://github.com/EsreverWoW/LibThreatClassic](https://github.com/EsreverWoW/LibThreatClassic)
 
