@@ -303,9 +303,9 @@ function prototype:OnInitialize()
 	self.DebuffHandlers = new()			-- Called when the player gains or loses a debuff
 	self.AbilityHandlers = new()		-- Called when the player uses an ability (ie, has a combatlog entry)
 	self.CastHandlers = new()			-- Called when the player uses an ability (ie, casts, used for flat-threat adds like buffing)
-	self.CastMissHandlers = new()		-- Called when an ability misses. Used to roll back ability transactions.
-	self.CastLandedHandlers = new()		-- ???
-	self.MobDebuffHandlers = new()		-- Only used for Devastate right now
+	self.CastMissHandlers = new()		-- Called when an ability misses.
+	self.CastLandedHandlers = new()		-- Called upon SPELL_CAST_SUCCESS
+	self.MobDebuffHandlers = new()
 	self.SpellReflectSources = new()
 
 	self.ClassDebuffs = new()
@@ -324,7 +324,6 @@ function prototype:OnInitialize()
 
 	-- Used to modify all data from a particular school. Only applies to some classes.
 	self.schoolThreatMods = new()
-	self.transactions = new()
 
 	-- Stores a hash of GUID = threat level
 	self.targetThreat = new()
@@ -570,14 +569,25 @@ function cleuHandlers:SPELL_AURA_APPLIED(timestamp, subEvent, hideCaster, source
 		end
 		if rb then self:calcBuffMods("gain", spellId) end
 		if rd then self:calcDebuffMods("gain", spellId) end
-	elseif auraType == AURA_TYPE_DEBUFF and bit_band(destFlags, COMBATLOG_OBJECT_REACTION_HOSTILE) == COMBATLOG_OBJECT_REACTION_HOSTILE and self.MobDebuffHandlers[spellId] then
-		self.MobDebuffHandlers[spellId](self, spellId, destGUID)
+	elseif auraType == AURA_TYPE_DEBUFF and bit_band(sourceFlags, self.unitTypeFilter) == self.unitTypeFilter and bit_band(destFlags, COMBATLOG_OBJECT_REACTION_HOSTILE) == COMBATLOG_OBJECT_REACTION_HOSTILE then
+		spellId = ThreatLib:GetSpellID(spellName, "target", auraType) or spellId
+		if self.MobDebuffHandlers[spellId] then
+			self.MobDebuffHandlers[spellId](self, spellId, destGUID)
+		end
 	end
 end
 
 function cleuHandlers:SPELL_AURA_APPLIED_DOSE(timestamp, subEvent, hideCaster, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags, spellId, spellName, _, auraType)
-	if bit_band(destFlags, COMBATLOG_OBJECT_REACTION_HOSTILE) == COMBATLOG_OBJECT_REACTION_HOSTILE and auraType == AURA_TYPE_DEBUFF then
-		-- spellId = ThreatLib.Classic and ThreatLib:GetSpellID(spellName, "target", auraType) or spellId
+	if  auraType == AURA_TYPE_DEBUFF and bit_band(sourceFlags, self.unitTypeFilter) == self.unitTypeFilter and bit_band(destFlags, COMBATLOG_OBJECT_REACTION_HOSTILE) == COMBATLOG_OBJECT_REACTION_HOSTILE then
+		spellId = ThreatLib:GetSpellID(spellName, "target", auraType) or spellId
+		if self.MobDebuffHandlers[spellId] then
+			self.MobDebuffHandlers[spellId](self, spellId, destGUID)
+		end
+	end
+end
+
+function cleuHandlers:SPELL_AURA_REFRESH(timestamp, subEvent, hideCaster, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags, spellId, spellName, _, auraType)
+	if  auraType == AURA_TYPE_DEBUFF and bit_band(sourceFlags, self.unitTypeFilter) == self.unitTypeFilter and bit_band(destFlags, COMBATLOG_OBJECT_REACTION_HOSTILE) == COMBATLOG_OBJECT_REACTION_HOSTILE then
 		spellId = ThreatLib:GetSpellID(spellName, "target", auraType) or spellId
 		if self.MobDebuffHandlers[spellId] then
 			self.MobDebuffHandlers[spellId](self, spellId, destGUID)
@@ -897,12 +907,7 @@ function prototype:parseDamage(recipient, threat, spellId, spellName, spellSchoo
 		threat = threat + self.rockbiterOHVal
 	end
 
-	-- spellId = ThreatLib.Classic and ThreatLib:GetSpellID(spellName) or spellId
 	spellId = ThreatLib:GetSpellID(spellName) or spellId
-
-	if spellId and spellId ~= 0 and subEvent ~= "SPELL_PERIODIC_DAMAGE" then
-		self:commitTransactionFor(recipient, spellId)
-	end
 
 	local handler = self.AbilityHandlers[spellId]
 	if handler then
@@ -925,7 +930,6 @@ function prototype:parseHeal(recipient, recipientName, amount, spellId, spellNam
 
 	local threat = amount
 
-	-- spellId = ThreatLib.Classic and ThreatLib:GetSpellID(spellName) or spellId
 	spellId = ThreatLib:GetSpellID(spellName) or spellId
 
 	if not self.ExemptGains[spellId] then
@@ -958,7 +962,6 @@ function prototype:parseGain(recipient, recipientName, amount, spellId, spellNam
 		return -- This can happen if a gain is procced on someone that is not in our party - for example, Blackheart MCs someone and benefits from a gain from that person.
 	end
 	local amount = math_min(maxgain, amount)
-	-- spellId = ThreatLib.Classic and ThreatLib:GetSpellID(spellName) or spellId
 	spellId = ThreatLib:GetSpellID(spellName) or spellId
 	if not self.ExemptGains[spellId] then
 		if powerType == SPELL_POWER_MANA then
@@ -975,14 +978,7 @@ function prototype:parseGain(recipient, recipientName, amount, spellId, spellNam
 	end
 end
 
-function prototype:parseMiss(recipient, recipientName, spellId, spellName)
-	-- spellId = ThreatLib.Classic and ThreatLib:GetSpellID(spellName) or spellId
-	spellId = ThreatLib:GetSpellID(spellName) or spellId
-	self:rollbackTransaction(recipient, spellId)
-end
-
 function prototype:parseCast(recipient, spellId, spellName)
-	-- spellId = ThreatLib.Classic and ThreatLib:GetSpellID(spellName) or spellId
 	spellId = ThreatLib:GetSpellID(spellName) or spellId
 
 	if self.unitType == "pet" then
@@ -991,8 +987,6 @@ function prototype:parseCast(recipient, spellId, spellName)
 			self.CastLandedHandlers[spellId](self, spellId, recipient)
 		end
 	else
-		-- This is for things like Righteous Defense, when you want to take some action for a "land" message.
-		-- This can't be used in the general case because of things like Sunder, which don't always produce land messages on success.
 		if self.CastLandedHandlers[spellId] then
 			self.CastLandedHandlers[spellId](self, spellId, recipient)
 		end
@@ -1002,11 +996,10 @@ end
 function prototype:PLAYER_REGEN_DISABLED()
 	self.totalThreatMods = nil
 	if not ThreatLib.running then return end
-	self.TransactionsCommitting = true
-	self:activatePeriodicTransactionCommit()
+	self.threatActive = true
 end
 
-local function func(self)
+local function petLeftCombat(self)
 	if not UnitExists("pet") or not UnitAffectingCombat("pet") then
 		if self.timers.PetInCombat then
 			self:CancelTimer(self.timers.PetInCombat)
@@ -1015,9 +1008,7 @@ local function func(self)
 		ThreatLib:Debug("Pet exiting combat.")
 		ThreatLib:SendComm(ThreatLib:GroupDistribution(), "LEFT_COMBAT", false, true)
 		self:ClearThreat()
-		self:rollbackAllTransactions()
-		self:deactivatePeriodicTransactionCommit()
-		self.TransactionsCommitting = false
+		self.threatActive = false
 	end
 end
 
@@ -1025,21 +1016,19 @@ function prototype:PLAYER_REGEN_ENABLED()
 	self.totalThreatMods = nil -- Accounts for death, mostly
 	self:calcBuffMods()
 	self:calcDebuffMods()
-	if not self.TransactionsCommitting then return end
+	if not self.threatActive then return end
 	-- PET_ATTACK_STOP doesn't always fire like you might expect it to	
 	if self.unitType == "pet" then
 		if self.timers.PetInCombat then
 			self:CancelTimer(self.timers.PetInCombat)
 		end
-		self.timers.PetInCombat = self:ScheduleRepeatingTimer(func, 0.5, self)
+		self.timers.PetInCombat = self:ScheduleRepeatingTimer(petLeftCombat, 0.5, self)
 	else
 		ThreatLib:Debug("Player exiting combat.")
 		local petIsOutOfCombat = not UnitExists("pet") or not UnitAffectingCombat("pet")
 		ThreatLib:SendComm(ThreatLib:GroupDistribution(), "LEFT_COMBAT", true, petIsOutOfCombat)
 		self:ClearThreat()
-		self:rollbackAllTransactions()
-		self:deactivatePeriodicTransactionCommit()
-		self.TransactionsCommitting = false
+		self.threatActive = false
 	end
 end
 
@@ -1048,7 +1037,7 @@ function prototype:PET_ATTACK_START()
 end
 
 function prototype:PET_ATTACK_STOP()
-	-- self:ScheduleRepeatingEvent("ThreatClassModuleCore-PetInCombat", func, 0.5, self)
+	-- self:ScheduleRepeatingEvent("ThreatClassModuleCore-PetInCombat", petLeftCombat, 0.5, self)
 end
 
 function prototype:CHARACTER_POINTS_CHANGED()
@@ -1078,51 +1067,6 @@ function prototype:ClearThreat()
 	ThreatLib:_clearThreat(UnitGUID(self.unitType))
 end
 
----------------------------------------------
--- Threat modification interface [Public API]
----------------------------------------------
-local function addTransactionOp(oplist, func, target)
-	local n = #oplist
-	oplist[n + 1] = func
-	oplist[n + 2] = target
-end
-
--- Specific-target threat
-function prototype:AddTargetThreatTransactional(target, spellId, threat)
-	local t = self:getTransaction(target, spellId)
-	addTransactionOp(t.ops, "AddTargetThreat", threat)
-end
-
--- Specific-target threat
-function prototype:MultiplyTargetThreatTransactional(target, spellId, modifier)
-	local t = self:getTransaction(target, spellId)
-	addTransactionOp(t.ops, "MultiplyTargetThreat", modifier)
-end
-
--- Global threat, like heals, mana gain, buffs, etc
-function prototype:AddThreatTransactional(spellId, threat)
-	for k, v in pairs(self.targetThreat) do
-		local t = self:getTransaction(k, spellId)
-		addTransactionOp(t.ops, "AddTargetThreat", threat)
-	end
-end
-
-function prototype:MultiplyThreatTransactional(spellId, modifier)
-	for k, v in pairs(self.targetThreat) do
-		local t = self:getTransaction(k, spellId)
-		addTransactionOp(t.ops, "MultiplyTargetThreat", modifier)
-	end
-end
-
--- Set your target's hate to a given value (Taunt effects, Feign Death minus resists)
-function prototype:SetTargetThreatTransactional(target, spellId, threat)
-	local t = self:getTransaction(target, spellId)
-	addTransactionOp(t.ops, "SetTargetThreat", threat)
-end
-
--- Reduces all threat by a multiplier. Vanish, Invisibility, some trinkets use this.
-prototype.ReduceAllThreatTransactional = prototype.MultiplyThreatTransactional
-
 ------------------------------------------------
 -- Overridable methods
 ------------------------------------------------
@@ -1131,7 +1075,7 @@ prototype.ClassInit = function() end
 prototype.ClassEnable = function() end
 
 ------------------------------------------------
--- Internal threat modification function, transaction-free
+-- Internal threat modification function
 ------------------------------------------------
 function prototype:AddTargetThreat(target, threat)
 	if threat == 0 then return end
@@ -1198,109 +1142,15 @@ end
 prototype.ReduceAllThreat = prototype.MultiplyThreat
 
 ------------------------------------------------
--- Spell transactions 
+-- Spell
 ------------------------------------------------
 function prototype:UNIT_SPELLCAST_SUCCEEDED(event, castingUnit, castGUID, spellId)
 	if castingUnit ~= self.unitType then return end
 
 	-- Param 3 is a target, but we can't get a target from this event! Best-guess it, if you MUST have the target then do it in CastLandedHandlers
-	-- TODO: If we haven't interacted with this target before, then we won't get a target, which causes transactional junk to fail.
+	-- TODO: If we haven't interacted with this target before, then we won't get a target
 	if self.CastHandlers[spellId] then
 		self.CastHandlers[spellId](self, spellId, UnitGUID("target"))
-	end
-end
-
-function prototype:startTransaction(recipient, spellId)
-	--[[
-	if type("recipient") ~= "asdf" then
-		error(("Expecting string for recipient, got %s (%s), trace: %s"):format(type(recipient), recipient, debugstack()))
-	end	
-	]]--
-	local key = spellId .. "-" .. recipient
-	local t = self.transactions[key]
-	if t then
-		self:commitTransaction(t)
-		self.transactions[key] = del(t)
-	end
-	local v = new()
-	v.spellId = spellId
-	v.target = recipient
-	v.time = GetTime()
-	v.ops = new()
-	self.transactions[key] = v
-	return v
-end
-
--- Shifts the oldest entry off of the list and invalidates it
-function prototype:rollbackTransaction(recipient, spellId)
-	local transaction = self:getTransaction(recipient, spellId, true)
-	if not transaction then return end
-	self:deleteTransaction(transaction)
-end
-
-function prototype:getTransaction(target, spellId, dontStartNew)
-	local t = self.transactions[spellId .. "-" .. target]
-	if not t and not dontStartNew then
-		t = self:startTransaction(target, spellId)
-	end
-	return t
-end
-
-function prototype:commitTransactionFor(target, spellId)
-	local t = self:getTransaction(target, spellId, true)
-	if not t then return end
-	self:commitTransaction(t)
-end
-
-function prototype:commitTransaction(transaction)
-	for i = 1, #transaction.ops, 2 do
-		local call = transaction.ops[i]
-		local threat = transaction.ops[i + 1]
-
-		self[call](self, transaction.target, threat)
-	end
-	self:deleteTransaction(transaction)
-end
-
-function prototype:deleteTransaction(transaction)
-	local k = transaction.spellId .. "-" .. transaction.target
-	if self.transactions[k] then
-		if self.transactions[k].ops then
-			self.transactions[k].ops = del(self.transactions[k].ops)
-		end
-		self.transactions[k] = del(self.transactions[k])
-	end
-end
-
-function prototype:rollbackAllTransactions()
-	for id, transaction in pairs(self.transactions) do
-		self:deleteTransaction(transaction)
-	end
-end
-
-function prototype:commitTransactionsPeriodic()
-	local t = GetTime()
-	local lag = select(4, GetNetStats()) / 1000
-	for id, transaction in pairs(self.transactions) do
-		if transaction and t - transaction.time > (0.65 + lag) then
-			self:commitTransaction(transaction)
-		end
-	end
-end
-
-do
-	function prototype:deactivatePeriodicTransactionCommit()
-		if self.timers["PeriodicCommit"] then
-			self:CancelTimer(self.timers["PeriodicCommit"], true)
-			self.timers["PeriodicCommit"] = nil
-		end
-	end
-
-	function prototype:activatePeriodicTransactionCommit()
-		if not self.timers["PeriodicCommit"] then
-			local clientLatency = select(4, GetNetStats()) / 1000
-			self.timers["PeriodicCommit"] = self:ScheduleRepeatingTimer("commitTransactionsPeriodic", 0.4 + clientLatency)
-		end
 	end
 end
 
