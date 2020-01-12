@@ -306,6 +306,11 @@ function prototype:OnInitialize()
 	self.CastMissHandlers = new()		-- Called when an ability misses.
 	self.CastLandedHandlers = new()		-- Called upon SPELL_CAST_SUCCESS
 	self.MobDebuffHandlers = new()
+
+	-- Gift of Arthas
+	self.MobDebuffHandlers[11374] = function(self, spellID, target)
+			self:AddTargetThreat(target, 90  * self:threatMods())
+	end
 	self.SpellReflectSources = new()
 
 	self.ClassDebuffs = new()
