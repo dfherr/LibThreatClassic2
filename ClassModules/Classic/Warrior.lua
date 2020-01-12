@@ -1,5 +1,6 @@
 if not _G.THREATLIB_LOAD_MODULES then return end -- only load if LibThreatClassic2.lua allows it
-local ThreatLib = LibStub and LibStub("LibThreatClassic2", true)
+if not LibStub then return end
+local ThreatLib, MINOR = LibStub("LibThreatClassic2", true)
 if not ThreatLib then return end
 
 if select(2, _G.UnitClass("player")) ~= "WARRIOR" then return end
@@ -13,7 +14,7 @@ local pairs, ipairs = _G.pairs, _G.ipairs
 local GetTime = _G.GetTime
 local UnitDebuff = _G.UnitDebuff
 
-local Warrior = ThreatLib:GetOrCreateModule("Player")
+local Warrior = ThreatLib:GetOrCreateModule("Player-r"..MINOR)
 
 -- https://github.com/magey/classic-warrior/wiki/Threat-Mechanics
 -- maxRankThreatValue / maxRankLevelAvailability = factor

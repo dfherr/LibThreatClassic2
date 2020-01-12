@@ -1,7 +1,9 @@
 if not _G.THREATLIB_LOAD_MODULES then return end -- only load if LibThreatClassic2.lua allows it
-local ThreatLib = LibStub and LibStub("LibThreatClassic2", true)
+if not LibStub then return end
+local ThreatLib, MINOR = LibStub("LibThreatClassic2", true)
 if not ThreatLib then return end
 
+ThreatLib:Debug("Loading class module core revision %s", MINOR)
 ---------------------------------------------------------------------------------------------------------------
 ---------------------------------------------------------------------------------------------------------------
 -- Blizzard Combat Log constants, in case your addon loads before Blizzard_CombatLog or it's disabled by the user
@@ -309,7 +311,7 @@ function prototype:OnInitialize()
 
 	-- Gift of Arthas
 	self.MobDebuffHandlers[11374] = function(self, spellID, target)
-			self:AddTargetThreat(target, 90  * self:threatMods())
+		self:AddTargetThreat(target, 90  * self:threatMods())
 	end
 	self.SpellReflectSources = new()
 
@@ -1160,6 +1162,7 @@ function prototype:UNIT_SPELLCAST_SUCCEEDED(event, castingUnit, castGUID, spellI
 end
 
 ThreatLib.GetOrCreateModule = function(self, t)
+	ThreatLib:Debug("enabling or creating class module %s", t)
 	return self:GetModule(t, true) or self:NewModule(t, self.ClassModulePrototype, "AceEvent-3.0", "AceTimer-3.0", "AceBucket-3.0")
 end
 
