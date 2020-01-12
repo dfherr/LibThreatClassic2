@@ -107,6 +107,7 @@ local InCombatLockdown = _G.InCombatLockdown
 local UnitGUID = _G.UnitGUID
 local UnitIsDead = _G.UnitIsDead
 local tostring = _G.tostring
+local GetSpellInfo = _G.GetSpellInfo
 
 ThreatLibNPCModuleCore.modulePrototype = {}
 
