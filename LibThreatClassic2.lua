@@ -111,7 +111,6 @@ LibStub.libs[MAJOR] = ThreatLib
 LibStub.minors[MAJOR] = MINOR
 
 _G.THREATLIB_LOAD_MODULES = true
-ThreatLib:Debug("Loading modules revision %s", MINOR)
 
 -- Update this when backwards incompatible changes are made
 local LAST_BACKWARDS_COMPATIBLE_REVISION = 2
@@ -234,6 +233,7 @@ function ThreatLib:Debug(msg, ...)
 		end
 	end
 end
+ThreatLib:Debug("Loading modules revision %s", MINOR)
 
 function ThreatLib:GroupDistribution()
 	if IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then

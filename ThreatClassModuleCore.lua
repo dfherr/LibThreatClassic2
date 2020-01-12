@@ -140,7 +140,7 @@ local SCHOOL_MASK_FROST			= SCHOOL_MASK_FROST				or 0x10
 local SCHOOL_MASK_SHADOW		= SCHOOL_MASK_SHADOW			or 0x20
 local SCHOOL_MASK_ARCANE		= SCHOOL_MASK_ARCANE			or 0x40
 
-local AURA_TYPE_DEBUFF = _G.AURA_TYPE_DEBUFF
+local AURA_TYPE_DEBUFF = "DEBUFF"  -- hardcode because _G.AURA_TYPE_DEBUFF returns nil here
 
 ---------------------------------------------------------------------------------------------------------------
 -- End Combat Log constants
@@ -578,6 +578,7 @@ function cleuHandlers:SPELL_AURA_APPLIED(timestamp, subEvent, hideCaster, source
 		if rd then self:calcDebuffMods("gain", spellId) end
 	elseif auraType == AURA_TYPE_DEBUFF and bit_band(sourceFlags, self.unitTypeFilter) == self.unitTypeFilter and bit_band(destFlags, COMBATLOG_OBJECT_REACTION_HOSTILE) == COMBATLOG_OBJECT_REACTION_HOSTILE then
 		spellId = ThreatLib:GetSpellID(spellName, "target", auraType) or spellId
+		ThreatLib:Debug("aura applied debuff spellId %s name %s", spellID, spellName)
 		if self.MobDebuffHandlers[spellId] then
 			self.MobDebuffHandlers[spellId](self, spellId, destGUID)
 		end
@@ -585,8 +586,9 @@ function cleuHandlers:SPELL_AURA_APPLIED(timestamp, subEvent, hideCaster, source
 end
 
 function cleuHandlers:SPELL_AURA_APPLIED_DOSE(timestamp, subEvent, hideCaster, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags, spellId, spellName, _, auraType)
-	if  auraType == AURA_TYPE_DEBUFF and bit_band(sourceFlags, self.unitTypeFilter) == self.unitTypeFilter and bit_band(destFlags, COMBATLOG_OBJECT_REACTION_HOSTILE) == COMBATLOG_OBJECT_REACTION_HOSTILE then
+	if auraType == AURA_TYPE_DEBUFF and bit_band(sourceFlags, self.unitTypeFilter) == self.unitTypeFilter and bit_band(destFlags, COMBATLOG_OBJECT_REACTION_HOSTILE) == COMBATLOG_OBJECT_REACTION_HOSTILE then
 		spellId = ThreatLib:GetSpellID(spellName, "target", auraType) or spellId
+		ThreatLib:Debug("aura applied dose debuff spellId %s", spellID)
 		if self.MobDebuffHandlers[spellId] then
 			self.MobDebuffHandlers[spellId](self, spellId, destGUID)
 		end
@@ -596,6 +598,7 @@ end
 function cleuHandlers:SPELL_AURA_REFRESH(timestamp, subEvent, hideCaster, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags, spellId, spellName, _, auraType)
 	if  auraType == AURA_TYPE_DEBUFF and bit_band(sourceFlags, self.unitTypeFilter) == self.unitTypeFilter and bit_band(destFlags, COMBATLOG_OBJECT_REACTION_HOSTILE) == COMBATLOG_OBJECT_REACTION_HOSTILE then
 		spellId = ThreatLib:GetSpellID(spellName, "target", auraType) or spellId
+		ThreatLib:Debug("aura refresh debuff spellId %s", spellID)
 		if self.MobDebuffHandlers[spellId] then
 			self.MobDebuffHandlers[spellId](self, spellId, destGUID)
 		end
