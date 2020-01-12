@@ -101,7 +101,7 @@ end
 
 function Druid:ScanTalents()
 	if ThreatLib.Classic then
-		self.feralinstinctMod = 1 + 0.03 * select(5, GetTalentInfo(2, 3))
+		self.feralinstinctMod = 0.03 * select(5, GetTalentInfo(2, 3))
 		self.subtletyMod = 1 - 0.04 * select(5, GetTalentInfo(3, 8))
 		self.tranqMod = 1 - 0.5 * select(5, GetTalentInfo(3, 13))
 	else
@@ -116,7 +116,7 @@ function Druid:GetStanceThreatMod()
 	local form = GetShapeshiftForm()
 	self.isTanking = false
 	if form == 1 then
-		self.passiveThreatModifiers = 1.3 * self.feralinstinctMod
+		self.passiveThreatModifiers = 1.3 + self.feralinstinctMod
 		self.isTanking = true
 	elseif form == 2 or form == 3 then
 		-- if aquatic form is not learnt, druid cat form is 2 and travel form 3
