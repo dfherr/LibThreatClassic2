@@ -309,8 +309,9 @@ function prototype:OnInitialize()
 	self.CastLandedHandlers = new()		-- Called upon SPELL_CAST_SUCCESS
 	self.MobDebuffHandlers = new()
 
+	self.MobSpellNameDebuffHandlers = new() -- used to match single rank debuffs that return nil with GetSpellInfo(spellName)
 	-- Gift of Arthas
-	self.MobDebuffHandlers[11374] = function(self, spellID, target)
+	self.MobSpellNameDebuffHandlers[GetSpellInfo(11374)] = function(self, target)
 		self:AddTargetThreat(target, 90  * self:threatMods())
 	end
 	self.SpellReflectSources = new()
@@ -582,6 +583,9 @@ function cleuHandlers:SPELL_AURA_APPLIED(timestamp, subEvent, hideCaster, source
 		if self.MobDebuffHandlers[spellId] then
 			self.MobDebuffHandlers[spellId](self, spellId, destGUID)
 		end
+		if self.MobSpellNameDebuffHandlers[spellName] then
+			self.MobSpellNameDebuffHandlers[spellName](self, destGUID)
+		end
 	end
 end
 
@@ -592,6 +596,9 @@ function cleuHandlers:SPELL_AURA_APPLIED_DOSE(timestamp, subEvent, hideCaster, s
 		if self.MobDebuffHandlers[spellId] then
 			self.MobDebuffHandlers[spellId](self, spellId, destGUID)
 		end
+		if self.MobSpellNameDebuffHandlers[spellName] then
+			self.MobSpellNameDebuffHandlers[spellName](self, destGUID)
+		end
 	end
 end
 
@@ -601,6 +608,9 @@ function cleuHandlers:SPELL_AURA_REFRESH(timestamp, subEvent, hideCaster, source
 		ThreatLib:Debug("aura refresh debuff spellId %s", spellID)
 		if self.MobDebuffHandlers[spellId] then
 			self.MobDebuffHandlers[spellId](self, spellId, destGUID)
+		end
+		if self.MobSpellNameDebuffHandlers[spellName] then
+			self.MobSpellNameDebuffHandlers[spellName](self, destGUID)
 		end
 	end
 end
