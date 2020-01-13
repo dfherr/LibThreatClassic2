@@ -546,7 +546,7 @@ end
 
 function cleuHandlers:SPELL_ENERGIZE(timestamp, subEvent, hideCaster, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags, spellId, spellName, spellSchool, amount, overEnergize, powerType)
 	if bit_band(sourceFlags, self.unitTypeFilter) == self.unitTypeFilter then
-		self:parseGain(destGUID, destName, amount, spellId, spellName, overEnergize, powerType)
+		self:parseGain(destGUID, destName, amount, spellId, spellName, spellSchool, overEnergize, powerType)
 	end
 end
 cleuHandlers.SPELL_PERIODIC_ENERGIZE = cleuHandlers.SPELL_ENERGIZE
@@ -970,7 +970,7 @@ function prototype:parseHeal(recipient, recipientName, amount, spellId, spellNam
 	end
 end
 
-function prototype:parseGain(recipient, recipientName, amount, spellId, spellName, overEnergize, powerType)
+function prototype:parseGain(recipient, recipientName, amount, spellId, spellName, spellSchool, overEnergize, powerType)
 	if not ThreatLib.inCombat() then
 		return
 	end
@@ -984,6 +984,11 @@ function prototype:parseGain(recipient, recipientName, amount, spellId, spellNam
 	local amount = math_min(maxgain, amount)
 	spellId = ThreatLib:GetSpellID(spellName) or spellId
 	if not self.ExemptGains[spellId] then
+		handler = self.schoolThreatMods[spellSchool]
+		if handler then
+			amount = handler(self, amount)
+			
+		end
 		if powerType == SPELL_POWER_MANA then
 			self:AddThreat(amount * 0.5)
 		elseif powerType == SPELL_POWER_RAGE then

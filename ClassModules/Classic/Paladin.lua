@@ -6,6 +6,9 @@ if not ThreatLib then return end
 if select(2, _G.UnitClass("player")) ~= "PALADIN" then return end
 
 local Paladin = ThreatLib:GetOrCreateModule("Player-r"..MINOR)
+
+local SCHOOL_MASK_HOLY = _G.SCHOOL_MASK_HOLY or 0x02
+
 local UnitClass = _G.UnitClass
 local UnitInRange = _G.UnitInRange
 local UnitIsGhost = _G.UnitIsGhost
@@ -34,38 +37,6 @@ local HolyHealIDs = {
 
 	-- Flash of Light
 	19750, 19939, 19940, 19941, 19942, 19943,
-}
-
-local HolyDamageIDs = {
-	-- Blessing of Sanctuary
-	20911, 20912, 20913, 20914,
-
-	-- Exorcism
-	879, 5614, 5615, 10312, 10313, 10314,
-
-	-- Greater Blessing of Sanctuary
-	25899,
-
-	-- Hammer of Wrath
-	24275, 24274, 24239,
-
-	-- Holy Wrath
-	2812, 10318,
-
-	-- Judgement of Command
-	20467, 20963, 20964, 20964, 20966, 
-
-	-- Judgement of Righteousness
-	20187, 20280, 20281, 20282, 20283, 20284, 20285, 20286,
-
-	-- Retribution Aura
-	7294, 10298, 10299, 10300, 10301,
-
-	-- Seal of Command
-	20375, 
-
-	-- Seal of Righteousness
-	21084, 20287, 20288, 20289, 20290, 20291, 20292, 20293,
 }
 
 --blessing threat values
@@ -142,11 +113,7 @@ function Paladin:ClassInit()
 		self.CastLandedHandlers[k] = self.Blessing
 	end
 
-	-- Righteous Fury
-	for i = 1, #HolyDamageIDs do
-		self.AbilityHandlers[HolyDamageIDs[i]] = self.RighteousFury
-	end
-	HolyDamageIDs = nil
+	self.schoolThreatMods[SCHOOL_MASK_HOLY] = self.RighteousFury
 
 	self.BuffHandlers[RIGHTEOUS_FURY_SPELL_ID] = self.RighteousFuryBuff
 
