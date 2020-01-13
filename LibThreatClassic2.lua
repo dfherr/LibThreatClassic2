@@ -166,23 +166,23 @@ end
 
 ThreatLib.OnCommReceive = {}
 ThreatLib.playerName = UnitName("player")
-ThreatLib.partyMemberAgents = ThreatLib.partyMemberAgents or {}
-ThreatLib.lastPublishedThreat = ThreatLib.lastPublishedThreat or {player = {}, pet = {}}
-ThreatLib.threatOffsets = ThreatLib.threatOffsets or {player = {}, pet = {}}
-ThreatLib.publishInterval = ThreatLib.publishInterval or nil
-ThreatLib.lastPublishTime = ThreatLib.lastPublishTime or 0
-ThreatLib.dontPublishThreat = (ThreatLib.dontPublishThreat ~= nil and ThreatLib.dontPublishThreat) or false
-ThreatLib.partyMemberRevisions = ThreatLib.partyMemberRevisions or {}
-ThreatLib.threatTargets = ThreatLib.threatTargets or {}
+ThreatLib.partyMemberAgents = {}
+ThreatLib.lastPublishedThreat = {player = {}, pet = {}}
+ThreatLib.threatOffsets = {player = {}, pet = {}}
+ThreatLib.publishInterval = nil
+ThreatLib.lastPublishTime = 0
+ThreatLib.dontPublishThreat = false
+ThreatLib.partyMemberRevisions = {}
+ThreatLib.threatTargets = {}
 ThreatLib.latestSeenRevision = MINOR -- set later, to get the latest version of the whole lib
 ThreatLib.isIncompatible = nil
 ThreatLib.lastCompatible = LAST_BACKWARDS_COMPATIBLE_REVISION
-ThreatLib.currentPartySize = ThreatLib.currentPartySize or 0
-ThreatLib.latestSeenSender = ThreatLib.latestSeenSender or nil
-ThreatLib.partyUnits = ThreatLib.partyUnits or {}
+ThreatLib.currentPartySize = 0
+ThreatLib.latestSeenSender = nil
+ThreatLib.partyUnits = {}
 
-ThreatLib.GUIDNameLookup = ThreatLib.GUIDNameLookup or setmetatable({}, { __index = function() return "<unknown>" end })
-ThreatLib.threatLog = ThreatLib.threatLog or {}
+ThreatLib.GUIDNameLookup = setmetatable({}, { __index = function() return "<unknown>" end })
+ThreatLib.threatLog = {}
 local guidLookup = ThreatLib.GUIDNameLookup
 
 local threatTargets = ThreatLib.threatTargets
@@ -198,6 +198,7 @@ local new, del, newHash, newSet = ThreatLib.new, ThreatLib.del, ThreatLib.newHas
 -- For development
 ThreatLib.DebugEnabled = false
 ThreatLib.alwaysRunOnSolo = false
+ThreatLib.LogThreat = false -- logs threat in ThreatLib.threatLog and enables ADD_THREAT debug
 
 ------------------------------------------------
 -- Utility Functions
@@ -678,8 +679,11 @@ function ThreatLib:OnEnable()
 	self:RegisterEvent("PLAYER_ALIVE")
 	self:RegisterEvent("PLAYER_LOGIN")
 
+	-- disable all modules including old revision for full reboot
+	for k in pairs(self.modules) do
+		self:DisableModule(k)
+	end
 	-- (re)boot the NPC core
-	self:DisableModule("NPCCore-r"..MINOR)
 	self:EnableModule("NPCCore-r"..MINOR)
 
 	-- Do event registrations here, as a Blizzard bug seems to be causing lockups if these are registered too early
@@ -866,7 +870,7 @@ function ThreatLib:GROUP_ROSTER_UPDATE()
 		self:CancelTimer(timers.UpdateParty, true)
 		timers.UpdateParty = nil
 	end
-	timers.UpdateParty = self:ScheduleTimer("UpdateParty", 0.5)
+	timers.UpdateParty = self:ScheduleTimer("UpdateParty", 1.0)
 end
 ------------------------------------------------------------------------
 -- Handled Chat Messages

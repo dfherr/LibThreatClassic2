@@ -1088,11 +1088,11 @@ prototype.ClassEnable = function() end
 -- Internal threat modification function
 ------------------------------------------------
 function prototype:AddTargetThreat(target, threat)
-	ThreatLib:Debug("ADD_THREAT %s %s", target, threat)
 	if threat == 0 then return end
 	local v = math_max(0, (self.targetThreat[target] or 0) + threat)
 	self.targetThreat[target] = v
 	if ThreatLib.LogThreat then
+		ThreatLib:Debug("ADD_THREAT %s %s", target, threat)
 		ThreatLib:Log("ADD_THREAT", self.unitGUID or UnitGUID(self.unitType), target, v)
 	end
 	ThreatLib:ThreatUpdated(self.unitGUID or UnitGUID(self.unitType), target, v)
