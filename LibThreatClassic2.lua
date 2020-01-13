@@ -444,19 +444,23 @@ function ThreatLib:Log(action, from, to, threat)
 end
 
 function ThreatLib:GetSpellID(spellName, unit, auraType)
+
 	-- get spellID from auras
 	if auraType and unit then
+		local spellId = nil
 		if auraType == AURA_TYPE_DEBUFF then
-			return select(10, AuraUtil.FindAuraByName(spellName, unit, "HARMFUL")) or 0
+			spellId = select(10, AuraUtil.FindAuraByName(spellName, unit, "HARMFUL"))
 		else
-			return select(10, AuraUtil.FindAuraByName(spellName, unit)) or 0
+			spellId = select(10, AuraUtil.FindAuraByName(spellName, unit))
+		end
+		if spellId then
+			return spellId
 		end
 	-- get spellID from cache/spellbook
-	else
-		-- eventually build a cache from UNIT_SPELLCAST_* events to track lower ranks
-		-- for now, we just assume max rank and get that spellID from the spellbook
-		return select(7, GetSpellInfo(spellName)) or 0
 	end
+	-- eventually build a cache from UNIT_SPELLCAST_* events to track lower ranks
+	-- for now, we just assume max rank and get that spellID from the spellbook
+	return select(7, GetSpellInfo(spellName)) or 0
 end
 
 ThreatLib.prefix = "LTC2"
