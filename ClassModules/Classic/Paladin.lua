@@ -191,7 +191,7 @@ function Paladin:ScanTalents()
 		local rank = select(5, GetTalentInfo(2, 7))
 		righteousFuryMod = 1.6
 		if rank then
-			righteousFuryMod = righteousFuryMod * (1 + irfRanks[rank+1])
+			righteousFuryMod = 1 + 0.6 * (1 + irfRanks[rank+1])
 		end
 		
 	else
