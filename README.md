@@ -22,9 +22,9 @@ local _UnitDetailedThreatSituation = function (unit, mob)
 end
 ```
 
-## Pulling LibThreatClassic2 with packager
+## Embedding LibThreatClassic2 with packager
 
-Please make sure to only automatically pull the latest tag into your AddOn. I won't guarantee the latest commit in master always being a release candidate, especially in regards to version bumps.
+Please make sure to only automatically embed the latest tag into your AddOn. I won't guarantee the latest commit in master always being a release candidate, especially in regards to version bumps.
 
 Your packager config should look similar to this:
 
