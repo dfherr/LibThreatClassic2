@@ -88,7 +88,7 @@ if _G.WOW_PROJECT_ID ~= _G.WOW_PROJECT_CLASSIC then return end
 
 _G.THREATLIB_LOAD_MODULES = false -- don't load modules unless we update this file
 
-local MAJOR, MINOR = "LibThreatClassic2", 6 -- Bump minor on changes, Major is constant lib identifier
+local MAJOR, MINOR = "LibThreatClassic2", 7 -- Bump minor on changes, Major is constant lib identifier
 assert(LibStub, MAJOR .. " requires LibStub")
 
 -- if this version or a newer one is already installed, go no further
@@ -1265,6 +1265,23 @@ function ThreatLib:GetThreat(player_guid, target_guid)
 	return max(0, data[target_guid] or 0)
 end
 
+function ThreatLib:GetHighestThreat(player_guid)
+	local data = threatTargets[player_guid]
+	if not data then
+		return nil, 0
+	end
+
+	local max_threat = 0
+	local target_guid = nil
+	for k, v in pairs(data) do
+		if (v > max_threat) then
+			max_threat = v
+			target_guid = k
+		end
+	end
+	return target_guid, max_threat
+end
+
 --[[------------------------------------------------------------
 Arguments:
 	string - player name to get cumulative threat for
@@ -1616,19 +1633,30 @@ end
 ------------------------------------------------------------------------
 function ThreatLib:UnitDetailedThreatSituation(unit, target)
 	local isTanking, threatStatus, threatPercent, rawThreatPercent, threatValue = nil, 0, nil, nil, 0
-	if not UnitExists(unit) or not UnitExists(target) then
+	if not UnitExists(unit) then
 		return isTanking, threatStatus, threatPercent, rawThreatPercent, threatValue
 	end
 
-	local unitGUID, targetGUID = UnitGUID(unit), UnitGUID(target)
-	local threatValue = self:GetThreat(unitGUID, targetGUID) or 0
+	local unitGUID = UnitGUID(unit)
+	local targetGUID, threatValue = self:GetHighestThreat(unitGUID)
+	if target then
+		targetGUID = UnitGUID(target)
+		threatValue = self:GetThreat(unitGUID, targetGUID) or 0
+	end
+
 	if threatValue == 0 then
 		return isTanking, threatStatus, threatPercent, rawThreatPercent, threatValue
 	end
 
-	local targetTarget = target .. "target"
-	local targetTargetGUID = UnitGUID(targetTarget)
-	local targetTargetVal = self:GetThreat(unitGUID, targetTargetGUID) or 0
+	local maxVal, maxGUID = self:GetMaxThreatOnTarget(targetGUID)
+
+	--It's painful to figure out what a guid is targeting, just assume it is targeting max threat if no target
+	local targetTargetVal, targetTargetGUID = maxVal, maxGUID
+	if target then
+		local targetTarget = target .. "target"
+		targetTargetGUID = UnitGUID(targetTarget)
+		targetTargetVal = self:GetThreat(unitGUID, targetTargetGUID) or 0
+	end
 
 	local isPlayer
 	if unit == "player" then isPlayer = true end
@@ -1639,7 +1667,6 @@ function ThreatLib:UnitDetailedThreatSituation(unit, target)
 		aggroMod = 1.1
 	end
 
-	local maxVal, maxGUID = self:GetMaxThreatOnTarget(targetGUID)
 
 	local aggroVal = 0
 	if targetTargetVal >= maxVal / aggroMod then
@@ -1648,10 +1675,13 @@ function ThreatLib:UnitDetailedThreatSituation(unit, target)
 		aggroVal = maxVal
 	end
 
-	local hasTarget = UnitExists(target .. "target")
+	local hasTarget = targetTargetGUID == nil
+	if target then 
+		hasTarget = UnitExists(target .. "target")
+	end
 
 	if threatValue >= aggroVal then
-		if UnitIsUnit(unit, targetTarget) then
+		if targetTargetGUID and unitGUID == targetTargetGUID then
 			isTanking = 1
 			if unitGUID == maxGUID then
 				threatStatus = 3
@@ -1685,6 +1715,6 @@ end
 --  integer - returns the threat status for the unit on the mob, or nil if unit is not on mob's threat table. (3 = securely tanking, 2 = insecurely tanking, 1 = not tanking but higher threat than tank, 0 = not tanking and lower threat than tank)
 ------------------------------------------------------------------------
 function ThreatLib:UnitThreatSituation(unit, target)
-	if not UnitExists(unit) or not UnitExists(target) then return 0 end
+	if not UnitExists(unit) then return 0 end
 	return select(2, self:UnitDetailedThreatSituation(unit, target))
 end
