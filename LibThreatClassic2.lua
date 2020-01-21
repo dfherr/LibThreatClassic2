@@ -135,6 +135,7 @@ local tostring, tonumber, type = _G.tostring, _G.tonumber, _G.type
 
 local UnitName = _G.UnitName
 local UnitIsUnit = _G.UnitIsUnit
+local UnitIsPlayer = _G.UnitIsPlayer
 local setmetatable = _G.setmetatable
 local GetRaidRosterInfo = _G.GetRaidRosterInfo
 local GetNumGroupMembers = _G.GetNumGroupMembers
@@ -1616,43 +1617,85 @@ end
 ------------------------------------------------------------------------
 function ThreatLib:UnitDetailedThreatSituation(unit, target)
 	local isTanking, threatStatus, threatPercent, rawThreatPercent, threatValue = nil, 0, nil, nil, 0
-	if not UnitExists(unit) or not UnitExists(target) then
+
+	local unitGUID, targetGUID = UnitGUID(unit), UnitGUID(target)
+
+	if not unitGUID or not targetGUID then
 		return isTanking, threatStatus, threatPercent, rawThreatPercent, threatValue
 	end
 
-	local unitGUID, targetGUID = UnitGUID(unit), UnitGUID(target)
-	local threatValue = self:GetThreat(unitGUID, targetGUID) or 0
+	threatValue = self:GetThreat(unitGUID, targetGUID) or 0
+
 	if threatValue == 0 then
 		return isTanking, threatStatus, threatPercent, rawThreatPercent, threatValue
 	end
 
-	local targetTarget = target .. "target"
+	local maxThreat, maxGUID = self:GetMaxThreatOnTarget(targetGUID)
+
+	local tankGUID
+	local tankThreat
+
+	local targetTarget = target .. "-target"
 	local targetTargetGUID = UnitGUID(targetTarget)
-	local targetTargetVal = self:GetThreat(unitGUID, targetTargetGUID) or 0
 
-	local isPlayer
-	if unit == "player" then isPlayer = true end
-	local class = select(2, UnitClass(unit))
+	if targetTargetGUID then
+		local targetTargetThreat = self:GetThreat(targetTargetGUID, targetGUID) or 0
 
-	local aggroMod = 1.3
-	if isPlayer and self:UnitInMeleeRange(targetGUID) or (not isPlayer and (class == "ROGUE" or class == "WARRIOR")) or (strsplit("-", unitGUID) == "Pet" and class ~= "MAGE") then
-		aggroMod = 1.1
-	end
+		tankGUID = targetTargetGUID
+		tankThreat = targetTargetThreat
 
-	local maxVal, maxGUID = self:GetMaxThreatOnTarget(targetGUID)
+		for otherUnitGUID in pairs(threatTargets) do
+			local otherUnitThreat = self:GetThreat(otherUnitGUID, targetGUID) or 0
+			local otherUnitAggroMod = 1.3 -- self:InMeleeRange(otherUnitGUID, targetGUID) and 1.1 or 1.3
 
-	local aggroVal = 0
-	if targetTargetVal >= maxVal / aggroMod then
-		aggroVal = targetTargetVal
+			if otherUnitThreat >= otherUnitAggroMod * targetTargetThreat and otherUnitThreat > tankThreat then
+				tankGUID = otherUnitGUID
+				tankThreat = otherUnitThreat
+			end
+		end
 	else
-		aggroVal = maxVal
+		tankGUID = maxGUID
+		tankThreat = maxThreat
 	end
 
-	local hasTarget = UnitExists(target .. "target")
+	rawThreatPercent = threatValue / tankThreat * 100
 
-	if threatValue >= aggroVal then
-		if UnitIsUnit(unit, targetTarget) then
+	if unitGUID == tankGUID then
+		threatPercent = 100
+	else
+		local aggroMod
+
+		if unitGUID == UnitGUID("player") then
+			local inMeleeRange = self:UnitInMeleeRange(target)
+
+			if inMeleeRange ~= nil then
+				aggroMod = inMeleeRange and 1.1 or 1.3
+			end
+		end
+
+		-- if not aggroMod then
+		-- 	aggroMod = self:InMeleeRange(unitGUID, targetGUID) and 1.1 or 1.3
+		-- end
+
+		if not aggroMod then -- remove me
+			local _, class = UnitClass(unit)
+
+			if class == "ROGUE" or class == "WARRIOR" then
+				aggroMod = 1.1
+			elseif not UnitIsPlayer(unit) and class ~= "MAGE" then
+				aggroMod = 1.1
+			else
+				aggroMod = 1.3
+			end
+		end
+
+		threatPercent = rawThreatPercent / aggroMod
+	end
+
+	if threatValue >= tankThreat then
+		if unitGUID == tankGUID then
 			isTanking = 1
+
 			if unitGUID == maxGUID then
 				threatStatus = 3
 			else
@@ -1661,14 +1704,6 @@ function ThreatLib:UnitDetailedThreatSituation(unit, target)
 		else
 			threatStatus = 1
 		end
-	end
-
-	rawThreatPercent = threatValue / aggroVal * 100
-
-	if isTanking or (not hasTarget and threatStatus ~= 0 ) then
-		threatPercent = 100
-	else
-		threatPercent = rawThreatPercent / aggroMod
 	end
 
 	threatValue = floor(threatValue)
