@@ -122,7 +122,7 @@ ThreatLib.callbacks = ThreatLib.callbacks or CBH:New(ThreatLib, nil, nil, false)
 
 ThreatLib.Classic = _G.WOW_PROJECT_ID == _G.WOW_PROJECT_CLASSIC
 
-local _eventFrame = ThreatLib.frame
+local _eventFrame = ThreatLib.eventFrame
 local _callbacks = ThreatLib.callbacks
 
 local _G = _G
@@ -130,6 +130,7 @@ local _G = _G
 local error = _G.error
 local floor, max, min = _G.math.floor, _G.math.max, _G.math.min
 local tinsert, tremove, tconcat = _G.tinsert, _G.tremove, _G.table.concat
+local wipe = _G.wipe
 local table_sort = _G.table.sort
 local tostring, tonumber, type = _G.tostring, _G.tonumber, _G.type
 local string_gmatch = _G.string.gmatch
@@ -137,6 +138,7 @@ local string_gmatch = _G.string.gmatch
 local UnitName = _G.UnitName
 local UnitIsUnit = _G.UnitIsUnit
 local UnitIsPlayer = _G.UnitIsPlayer
+local UnitInRaid = _G.UnitInRaid
 local setmetatable = _G.setmetatable
 local GetRaidRosterInfo = _G.GetRaidRosterInfo
 local GetNumGroupMembers = _G.GetNumGroupMembers
@@ -168,14 +170,23 @@ end
 
 ThreatLib.OnCommReceive = {}
 ThreatLib.playerName = UnitName("player")
+ThreatLib.playerGUID = UnitGUID("player")
 ThreatLib.partyMemberAgents = {}
 ThreatLib.lastPublishedThreat = {player = {}, pet = {}}
+ThreatLib.lastPublishedMeleeRange = {}
 ThreatLib.threatOffsets = {player = {}, pet = {}}
 ThreatLib.publishInterval = nil
+ThreatLib.publishMeleeRangeInterval = nil
+ThreatLib.meleeRangeCheckInterval = nil
 ThreatLib.lastPublishTime = 0
+ThreatLib.lastPublishMeleeRangeTime = 0
+ThreatLib.lastMeleeRangeCheckTime = 0
 ThreatLib.dontPublishThreat = false
+ThreatLib.dontPublishMeleeRange = false
 ThreatLib.partyMemberRevisions = {}
 ThreatLib.threatTargets = {}
+ThreatLib.meleeRange = {}
+ThreatLib.meleeRangeDefault = {}
 ThreatLib.latestSeenRevision = MINOR -- set later, to get the latest version of the whole lib
 ThreatLib.isIncompatible = nil
 ThreatLib.lastCompatible = LAST_BACKWARDS_COMPATIBLE_REVISION
@@ -188,13 +199,22 @@ ThreatLib.threatLog = {}
 local guidLookup = ThreatLib.GUIDNameLookup
 
 local threatTargets = ThreatLib.threatTargets
+local meleeRange = ThreatLib.meleeRange
+local meleeRangeDefault = ThreatLib.meleeRangeDefault
 local lastPublishedThreat = ThreatLib.lastPublishedThreat
+local lastPublishedMeleeRange = ThreatLib.lastPublishedMeleeRange
 local partyUnits = ThreatLib.partyUnits
 local partyMemberAgents = ThreatLib.partyMemberAgents
 local partyMemberRevisions = ThreatLib.partyMemberRevisions
+local groupTargetIDs = {}
+local cachedTargetIDs = {}
 local timers = {}
 local inParty, inRaid = false, false
+local threatChangedSinceLastPublish
+local meleeRangeChangedSinceLastPublish
 local lastPublishTime = ThreatLib.lastPublishTime
+local lastPublishMeleeRangeTime = ThreatLib.lastPublishMeleeRangeTime
+local lastMeleeRangeCheckTime = ThreatLib.lastMeleeRangeCheckTime
 local new, del, newHash, newSet = ThreatLib.new, ThreatLib.del, ThreatLib.newHash, ThreatLib.newSet
 
 -- For development
@@ -206,6 +226,8 @@ ThreatLib.LogThreat = false -- logs threat in ThreatLib.threatLog and enables AD
 -- Utility Functions
 ---------------------------------------------------------
 local playerName = UnitName("player")
+local playerGUID = UnitGUID("player")
+local playerPetGUID = UnitGUID("pet")
 local tableCount, usedTableCount = 0, 0
 
 -- #NODOC
@@ -476,7 +498,8 @@ ThreatLib:RegisterMemoizations({
 	THREAT_UPDATE 			= "TU",
 	WIPE_ALL_THREAT 		= "WT",
 	ACTIVATE_NPC_MODULE 	= "AM",
-	SET_NPC_MODULE_VALUE 	= "SV"
+	SET_NPC_MODULE_VALUE 	= "SV",
+	MELEE_RANGE_UPDATE 		= "MU"
 })
 ThreatLib.WowVersion, ThreatLib.WowMajor, ThreatLib.WowMinor = strsplit(".", tostring(GetBuildInfo()))
 ThreatLib.WowVersion, ThreatLib.WowMajor, ThreatLib.WowMinor = tonumber(ThreatLib.WowVersion), tonumber(ThreatLib.WowMajor), tonumber(ThreatLib.WowMinor)
@@ -748,6 +771,8 @@ function ThreatLib:PLAYER_ENTERING_WORLD(force)
 			self:DisableModule("Pet-r"..MINOR)
 		end
 	end
+
+	C_Item.RequestLoadItemDataByID(8149)
 end
 
 function ThreatLib:PLAYER_LOGIN()
@@ -765,26 +790,43 @@ function ThreatLib:PLAYER_ALIVE()
 	end
 end
 
+local ThreatLib_OnUpdate
+
 function ThreatLib:PLAYER_REGEN_DISABLED()
 	-- self.inCombat = true
 	self:CancelTPSReset()
+
+	lastPublishTime = 0
+	lastPublishMeleeRangeTime = 0
+	lastMeleeRangeCheckTime = 0
+
+	self.publishInterval = self:GetPublishInterval()
+	self.publishMeleeRangeInterval = self:GetPublishMeleeRangeInterval()
+	self.meleeRangeCheckInterval = self:GetMeleeRangeCheckInterval()
+
+	self:RegisterEvent("UNIT_TARGET")
+	self:RegisterEvent("PLAYER_TARGET_CHANGED")
+	self:RegisterEvent("NAME_PLATE_UNIT_ADDED")
+	self:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
+
+	_eventFrame:SetScript("OnUpdate", ThreatLib_OnUpdate)
 end
 
 function ThreatLib:PLAYER_REGEN_ENABLED()
 	-- self.inCombat = false
 	self:ScheduleTPSReset()
+
+	self:UnregisterEvent("UNIT_TARGET")
+	self:UnregisterEvent("PLAYER_TARGET_CHANGED")
+	self:UnregisterEvent("NAME_PLATE_UNIT_ADDED")
+	self:UnregisterEvent("UPDATE_MOUSEOVER_UNIT")
+
+	_eventFrame:SetScript("OnUpdate", nil)
 end
 
 -- #NODOC
 function ThreatLib:ThreatUpdated(source_unit, target_guid, threat)
 	self:ThreatUpdatedForUnit(source_unit, target_guid, threat)
-	local t = GetTime()
-	if not self.publishInterval then
-		self.publishInterval = self:GetPublishInterval()
-	end
-	if t - lastPublishTime > self.publishInterval then
-		self:PublishThreat()
-	end
 end
 
 -- #NODOC
@@ -797,6 +839,31 @@ function ThreatLib:ThreatUpdatedForUnit(unit_id, target_guid, threat)
 		self:UpdateTPS(unit_id, target_guid, threat)
 		self:_setThreat(unit_id, target_guid, threat)
 		_callbacks:Fire("ThreatUpdated", unit_id, target_guid, threat)
+
+		if unit_id == playerGUID or unit_id == playerPetGUID then
+			threatChangedSinceLastPublish = true
+		end
+	end
+end
+
+-- #NODOC
+function ThreatLib:MeleeRangeUpdated(unitGUID, targetGUID, inMeleeRange)
+	self:MeleeRangeUpdatedForUnit(unitGUID, targetGUID, inMeleeRange)
+end
+
+-- #NODOC
+function ThreatLib:MeleeRangeUpdatedForUnit(unitGUID, targetGUID, inMeleeRange)
+	if type(unitGUID) ~= "string" then
+		error(("Assertion failed: type(%s --[[unitGUID]]) == %q, trace: %s"):format(self:toliteral(unitGUID), "string", debugstack()))
+	end
+
+	if self:_getInMeleeRange(unitGUID, targetGUID) ~= inMeleeRange then
+		self:_setInMeleeRange(unitGUID, targetGUID, inMeleeRange)
+		_callbacks:Fire("MeleeRangeUpdated", unitGUID, targetGUID, inMeleeRange)
+
+		if unitGUID == playerGUID then
+			meleeRangeChangedSinceLastPublish = true
+		end
 	end
 end
 
@@ -828,15 +895,31 @@ function ThreatLib:UpdateParty()
 	self:Debug("currentPartySize: %s, sizeBeforeUpdate: %s", self.currentPartySize, sizeBeforeUpdate)
 	if self.currentPartySize > sizeBeforeUpdate and self.currentPartySize > 0 then
 		self:PublishVersion(self:GroupDistribution())
-		self:UpdatePartyGUIDs()
 	end
+	self:UpdatePartyGUIDs()
 	_callbacks:Fire("PartyChanged")
 
 	self.publishInterval = self:GetPublishInterval()
+	self.publishMeleeRangeInterval = self:GetPublishMeleeRangeInterval()
+	self.meleeRangeCheckInterval = self:GetMeleeRangeCheckInterval()
 	self:PLAYER_ENTERING_WORLD()
 end
 
 function ThreatLib:UpdatePartyGUIDs()
+	wipe(groupTargetIDs)
+	wipe(meleeRangeDefault)
+
+	if not inRaid then
+		groupTargetIDs["player"] = "target"
+
+		if UnitExists("pet") then
+			groupTargetIDs["pet"] = "pettarget"
+		end
+
+		self:_setInMeleeRangeDefault("player")
+		self:_setInMeleeRangeDefault("pet")
+	end
+
 	if not inRaid and not inParty then return end
 
 	local playerFmt = inRaid and "raid%d" or "party%d"
@@ -854,19 +937,27 @@ function ThreatLib:UpdatePartyGUIDs()
 			local petGUID = UnitGUID(petID)
 			if petGUID then
 				guidLookup[petGUID] = UnitName(petID)
+
+				groupTargetIDs[petID] = petID .. "target"
+				self:_setInMeleeRangeDefault(petID)
 			end
+
+			groupTargetIDs[unitID] = unitID .. "target"
+			self:_setInMeleeRangeDefault(unitID)
 		end
 	end
 end
 
 function ThreatLib:UNIT_PET(event, unit)
-	if unit ~= "player" then return end
-	local exists = UnitExists("pet")
-	if exists and self.running then
-		self:DisableModule("Pet-r"..MINOR)
-		self:EnableModule("Pet-r"..MINOR)
-	else
-		self:DisableModule("Pet-r"..MINOR)
+	if unit == "player" then
+		local exists = UnitExists("pet")
+		if exists and self.running then
+			self:DisableModule("Pet-r"..MINOR)
+			self:EnableModule("Pet-r"..MINOR)
+		else
+			self:DisableModule("Pet-r"..MINOR)
+		end
+		playerPetGUID = UnitGUID("pet")
 	end
 	self:GROUP_ROSTER_UPDATE()	--- Does gaining or losing a pet already fire this? Is this needed?
 end
@@ -876,8 +967,42 @@ function ThreatLib:GROUP_ROSTER_UPDATE()
 		self:CancelTimer(timers.UpdateParty, true)
 		timers.UpdateParty = nil
 	end
-	timers.UpdateParty = self:ScheduleTimer("UpdateParty", 1.0)
+	timers.UpdateParty = self:ScheduleTimer("UpdateParty", 0.5)
 end
+
+function ThreatLib:UNIT_TARGET(event, unitID)
+	local targetID = groupTargetIDs[unitID]
+	local targetGUID = targetID and UnitGUID(targetID)
+
+	if targetGUID then
+		cachedTargetIDs[targetGUID] = targetID
+	end
+end
+
+function ThreatLib:PLAYER_TARGET_CHANGED()
+	local targetGUID = UnitGUID("target")
+
+	if targetGUID then
+		cachedTargetIDs[targetGUID] = "target"
+	end
+end
+
+function ThreatLib:NAME_PLATE_UNIT_ADDED(event, nameplateID)
+	local nameplateGUID = UnitGUID(nameplateID)
+
+	if nameplateGUID then
+		cachedTargetIDs[nameplateGUID] = nameplateID
+	end
+end
+
+function ThreatLib:UPDATE_MOUSEOVER_UNIT()
+	local mouseoverGUID = UnitGUID("mouseover")
+
+	if mouseoverGUID then
+		cachedTargetIDs[mouseoverGUID] = "mouseover"
+	end
+end
+
 ------------------------------------------------------------------------
 -- Handled Chat Messages
 ------------------------------------------------------------------------
@@ -1025,6 +1150,26 @@ function ThreatLib.OnCommReceive:SET_NPC_MODULE_VALUE(sender, distribution, var_
 	end
 end
 
+function ThreatLib.OnCommReceive:MELEE_RANGE_UPDATE(sender, distribution, msg)
+	if not msg then return end
+
+	local unitGUID = UnitGUID(sender)
+
+	for targetGUID, inMeleeRange in string_gmatch(msg, "([^=:]+)=([01]?),") do
+		if targetGUID then
+			inMeleeRange = tonumber(inMeleeRange)
+
+			if inMeleeRange == 1 then
+				inMeleeRange = true
+			elseif inMeleeRange == 0 then
+				inMeleeRange = false
+			end
+
+			self:MeleeRangeUpdatedForUnit(unitGUID, targetGUID, inMeleeRange)
+		end
+	end
+end
+
 ------------------------------------------------------------------------
 -- Command invocation methods
 ------------------------------------------------------------------------
@@ -1068,11 +1213,22 @@ function ThreatLib:_clearAllThreat()
 		threatTargets[k] = del(v)
 	end
 
+	for k,v in pairs(meleeRange) do
+		meleeRange[k] = nil
+	end
+
 	for k,v in pairs(lastPublishedThreat) do
 		for k2, v2 in pairs(v) do
 			v[k2] = nil
 		end
 	end
+
+	wipe(lastPublishedMeleeRange)
+
+	threatChangedSinceLastPublish = nil
+	meleeRangeChangedSinceLastPublish = nil
+
+	wipe(cachedTargetIDs)
 
 	-- self:Debug("Clearing ALL threat!")
 	_callbacks:Fire("ThreatCleared")
@@ -1095,10 +1251,21 @@ function ThreatLib:_clearThreat(guid)
 		self:ThreatUpdatedForUnit(guid, k, 0)
 	end
 
+	if meleeRange[guid] then
+		for k in pairs(meleeRange[guid]) do
+			self:MeleeRangeUpdatedForUnit(guid, k, nil)
+		end
+	end
+
 	if UnitGUID("player") == guid then
 		for k,v in pairs(lastPublishedThreat.player) do
 			lastPublishedThreat.player[k] = nil
 		end
+
+		wipe(lastPublishedMeleeRange)
+
+		threatChangedSinceLastPublish = nil
+		meleeRangeChangedSinceLastPublish = nil
 	elseif UnitGUID("pet") == guid then
 		for k,v in pairs(lastPublishedThreat.pet) do
 			lastPublishedThreat.pet[k] = nil
@@ -1108,7 +1275,66 @@ function ThreatLib:_clearThreat(guid)
 	if threatTargets[guid] then
 		threatTargets[guid] = del(data)
 	end
+
+	if meleeRange[guid] then
+		meleeRange[guid] = nil
+	end
+
 	self:PublishThreat()
+	self:PublishMeleeRange()
+end
+
+-- #NODOC
+function ThreatLib:_getInMeleeRange(unitGUID, targetGUID)
+	local data = meleeRange[unitGUID]
+	return data and data[targetGUID]
+end
+
+-- #NODOC
+function ThreatLib:_setInMeleeRange(unitGUID, targetGUID, inMeleeRange)
+	local data = meleeRange[unitGUID]
+	if not data then
+		data = {}
+		meleeRange[unitGUID] = data
+	end
+	data[targetGUID] = inMeleeRange
+end
+
+-- #NODOC
+function ThreatLib:_setInMeleeRangeDefault(unitID)
+	local unitGUID = UnitGUID(unitID)
+
+	if not unitGUID then
+		return
+	end
+
+	local default
+
+	if UnitInRaid(unitID) then
+		local role = select(10, GetRaidRosterInfo(UnitInRaid(unitID)))
+
+		if role == "MAINTANK" then
+			default = true
+		end
+	end
+
+	if default == nil then
+		local _, class = UnitClass(unitID)
+
+		if class == "ROGUE" or class == "WARRIOR" then
+			default = true
+		else
+			local isPet = not UnitIsPlayer(unitID)
+
+			if isPet and class ~= "MAGE" then
+				default = true
+			else
+				default = false
+			end
+		end
+	end
+
+	meleeRangeDefault[unitGUID] = default
 end
 
 -------------------------------------------------------
@@ -1120,6 +1346,10 @@ end
 -------------------------------------------------------
 function ThreatLib:ToggleThreatPublish(val)
 	self.dontPublishThreat = not val
+end
+
+function ThreatLib:ToggleMeleeRangePublish(val)
+	self.dontPublishMeleeRange = not val
 end
 
 -- #NODOC
@@ -1175,7 +1405,69 @@ do
 		if petMsg then
 			self:SendCommRaw(self:GroupDistribution(), "THREAT_UPDATE", petMsg)
 		end
+
 		lastPublishTime = GetTime()
+		threatChangedSinceLastPublish = false
+	end
+end
+
+-- #NODOC
+do
+	local t = {}
+
+	local function getMeleeRangeString(force)
+		local data = meleeRange[playerGUID]
+
+		if not data then
+			return nil, false
+		end
+
+		local nl = 0
+		local changed = false
+
+		for k, v in pairs(data) do
+			if lastPublishedMeleeRange[k] ~= v or force then
+				nl = nl + 1
+
+				if v then
+					t[nl] = format("%s=%d,", k, v and 1 or 0)
+				else
+					t[nl] = format("%s=,", k)
+				end
+
+				lastPublishedMeleeRange[k] = v
+				changed = true
+			end
+		end
+
+		for k, v in pairs(lastPublishedMeleeRange) do
+			if data[k] == nil then
+				nl = nl + 1
+				t[nl] = format("%s=,", k)
+				lastPublishedMeleeRange[k] = nil
+				changed = true
+			end
+		end
+
+		if changed then
+			return tconcat(t, "", 1, nl), true
+		else
+			return nil, false
+		end
+	end
+
+	-- #NODOC
+	function ThreatLib:PublishMeleeRange(force)
+		if (not inParty and not inRaid) or self.dontPublishMeleeRange then return end
+
+		local msg = getMeleeRangeString(force)
+
+		if msg then
+			self:SendCommRaw(self:GroupDistribution(), "MELEE_RANGE_UPDATE", msg)
+		end
+
+		lastPublishMeleeRangeTime = GetTime()
+		meleeRangeChangedSinceLastPublish = false
 	end
 end
 
@@ -1193,6 +1485,16 @@ function ThreatLib:GetPublishInterval()
 		interval = interval * 0.5
 	end
 	return interval
+end
+
+-- #NODOC
+function ThreatLib:GetPublishMeleeRangeInterval()
+	return 5.0
+end
+
+-- #NODOC
+function ThreatLib:GetMeleeRangeCheckInterval()
+	return 0.5
 end
 
 local function outOfDateFunc()
@@ -1285,21 +1587,55 @@ function ThreatLib:GetCumulativeThreat()
 end
 
 ------------------------------------------------------------------------
--- :UnitInMeleeRange("unitID")
+-- :UnitInMeleeRange("targetID")
 -- Arguments: 
 --  string - UnitID to check melee range for
 -- Notes:
--- Returns true if the unit is within 10 yards
+-- Returns true if target is within melee range of player
+-- Returns false if target is not within melee range of player
+-- Returns nil if the check failed
 ------------------------------------------------------------------------
-function ThreatLib:UnitInMeleeRange(unitID)
-	local meleeCheck
-	if GetItemInfo(8149) then
-		meleeCheck = IsItemInRange(8149, unitID) -- Voodoo Charm (5yd Range)
-	else
-		meleeCheck = CheckInteractDistance(unitID, 3)
+local IsItemInRange = _G.IsItemInRange
+function ThreatLib:UnitInMeleeRange(targetID)
+	local inMeleeRange = IsItemInRange(8149, targetID) -- Voodoo Charm (5yd Range)
+
+	if inMeleeRange == nil then
+		-- fallback if Voodoo Charm doesn't work
+		inMeleeRange =  CheckInteractDistance(targetID, 3) -- ~7yd range check
 	end
 
-	return UnitExists(unitID) and UnitIsVisible(unitID) and meleeCheck
+	return inMeleeRange
+end
+
+------------------------------------------------------------------------
+-- :InMeleeRange("unitGUID", "targetGUID")
+-- Arguments: 
+--  string - UnitGUID
+--  string - UnitGUID
+-- Notes:
+-- Returns inMeleeRange, success
+-- If success is true (range is available):
+--    inMeleeRange is true if the unit is within melee range of target
+--    inMeleeRange is false if the unit is not within melee range of target
+-- If success is false (range is not available but the default for unit is):
+--    inMeleeRange is the default for unit
+-- If success is nil (range is not available and neither is the default for unit):
+--    inMeleeRange is nil
+------------------------------------------------------------------------
+function ThreatLib:InMeleeRange(unitGUID, targetGUID)
+	local inMeleeRange = self:_getInMeleeRange(unitGUID, targetGUID)
+
+	if inMeleeRange ~= nil then
+		return inMeleeRange, true
+	end
+
+	local default = meleeRangeDefault[unitGUID]
+
+	if default ~= nil then
+		return default, false
+	end
+
+	return nil, nil
 end
 
 ------------------------------------------------------------------------
@@ -1590,6 +1926,121 @@ end
 ------------------------------------------------------------------------
 function ThreatLib:IsActive()
 	return self.running or false
+end
+
+function ThreatLib_OnUpdate()
+	local time = GetTime()
+
+	if time - lastMeleeRangeCheckTime > ThreatLib.meleeRangeCheckInterval then
+		local playerThreatTargets = ThreatLib.threatTargets[playerGUID]
+
+		if playerThreatTargets then
+			local currentID, currentTargetID = next(groupTargetIDs)
+			local nameplates, currentNameplateIndex, currentNameplate
+			local mouseoverChecked
+
+			-- For each targetGUID we need to find a matching targetID in order to
+			-- perform the range check. We proceed as lazily as possible; always
+			-- checking the cache first. If the cache entry is invalid, we remove it
+			-- and continue searching for the targetID. During the search we always
+			-- cache targetIDs as they might be needed for the remaining and future
+			-- targetGUIDs. We check the following unit ids:
+			--     target, pettarget, partyNtarget, partypetNtarget,
+			--     raidNtarget, raidpetNtarget, nameplateN, mouseover
+			-- If we can't find a matching targetID within these ids, then there
+			-- almost certainly isn't one. Theoretically raid1targettarget could be a
+			-- match for example, while the ones above are not, but then raid1target is
+			-- someone who is not in the group and friendly. This can only happen in the
+			-- open world. So in an instance we already exhaust all candidates.
+
+			for targetGUID in pairs(playerThreatTargets) do
+				-- Lookup targetGUID in cache.
+				local targetID = cachedTargetIDs[targetGUID]
+
+				-- Check if the entry in the cache is valid.
+				if targetID and targetGUID ~= UnitGUID(targetID) then
+					-- Invalid cache entry; remove from cache.
+					cachedTargetIDs[targetGUID] = nil
+					targetID = nil
+				end
+
+				-- If there is no valid targetID in the cache, then search in
+				-- groupTargetIDs for a targetID that matches targetGUID.
+				while not targetID and currentID do
+					-- No targetID found yet; continue to search in groupTargetIDs.
+					local currentTargetGUID = UnitGUID(currentTargetID)
+
+					if currentTargetGUID then
+						-- Cache targetID.
+						cachedTargetIDs[currentTargetGUID] = currentTargetID
+
+						if currentTargetGUID == targetGUID then
+							-- Match!
+							targetID = currentTargetID
+						end
+					end
+
+					currentID, currentTargetID = next(groupTargetIDs, currentID)
+				end
+
+				-- If we couldn't find a matching targetID in groupTargetIDs, then search in nameplates,
+				if not targetID then
+					if not nameplates then
+						nameplates = C_NamePlate.GetNamePlates(false)
+						currentNameplateIndex, currentNameplate = next(nameplates)
+					end
+
+					while not targetID and currentNameplateIndex do
+						local currentTargetID = currentNameplate.UnitFrame.unit
+						local currentTargetGUID = UnitGUID(currentTargetID)
+
+						if currentTargetGUID then
+							cachedTargetIDs[currentTargetGUID] = currentTargetID
+
+							if currentTargetGUID == targetGUID then
+								targetID = currentTargetID
+							end
+						end
+
+						currentNameplateIndex, currentNameplate = next(nameplates, currentNameplateIndex)
+					end
+				end
+
+				-- If we still didn't find anything, try mouseover,
+				if not targetID and not mouseoverChecked then
+					local currentTargetID = "mouseover"
+					local currentTargetGUID = UnitGUID(currentTargetID)
+
+					if currentTargetGUID then
+						cachedTargetIDs[currentTargetGUID] = currentTargetID
+
+						if currentTargetGUID == targetGUID then
+							targetID = currentTargetID
+						end
+					end
+
+					mouseoverChecked = true
+				end
+
+				-- At this point we might or might not have a matching targetID.
+				-- If we didn't find one, then there almost certainly isn't one.
+
+				local inMeleeRange = targetID and ThreatLib:UnitInMeleeRange(targetID)
+
+				ThreatLib:MeleeRangeUpdated(playerGUID, targetGUID, inMeleeRange)
+			end
+		end
+
+		lastMeleeRangeCheckTime = time
+	end
+
+	if threatChangedSinceLastPublish and time - lastPublishTime > ThreatLib.publishInterval then
+		ThreatLib:PublishThreat()
+	end
+
+	if meleeRangeChangedSinceLastPublish and time - lastPublishMeleeRangeTime > ThreatLib.publishMeleeRangeInterval then
+		ThreatLib:PublishMeleeRange()
+	end
 end
 
 ------------------------------------------------------------------------
