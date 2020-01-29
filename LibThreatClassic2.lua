@@ -132,6 +132,7 @@ local floor, max, min = _G.math.floor, _G.math.max, _G.math.min
 local tinsert, tremove, tconcat = _G.tinsert, _G.tremove, _G.table.concat
 local table_sort = _G.table.sort
 local tostring, tonumber, type = _G.tostring, _G.tonumber, _G.type
+local string_gmatch = _G.string.gmatch
 
 local UnitName = _G.UnitName
 local UnitIsUnit = _G.UnitIsUnit
@@ -884,14 +885,13 @@ local BLACKLIST_MOB_IDS = ThreatLib.BLACKLIST_MOB_IDS or {}
 
 function ThreatLib.OnCommReceive:THREAT_UPDATE(sender, distribution, msg)
 	if not msg then return end
-	local guid, target_guid, val = strsplit(":", msg)
-	target_guid, val = strsplit("=", target_guid)
-	val = strsub(val, 1, -2)
-	if guid then
-		local dstGUID, threat = target_guid, tonumber(val)
-		-- check against the blacklist to avoid trouble with clients that have an older version not blacklisting the mob
-		if dstGUID and threat then -- and not BLACKLIST_MOB_IDS[ThreatLib:NPCID(dstGUID)] then
-			self:ThreatUpdatedForUnit(guid, dstGUID, threat)
+	local unitGUID, threatUpdates = strsplit(":", msg)
+
+	if unitGUID then
+		for targetGUID, threatUpdate in string_gmatch(threatUpdates, "([^=:]+)=(%d+),") do
+			if targetGUID and threatUpdate then
+				self:ThreatUpdatedForUnit(unitGUID, targetGUID, tonumber(threatUpdate))
+			end
 		end
 	end
 end
