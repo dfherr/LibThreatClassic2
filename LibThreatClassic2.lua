@@ -1451,6 +1451,19 @@ do
 end
 
 ------------------------------------------------------------------------
+-- :GetPullAggroRangeModifier("unitGUID", "targetGUID")
+-- Arguments: 
+-- 		string - GUID of the unit to get modifier for
+--		string - GUID of the target to get range modifier for
+-- Notes:
+-- Returns the modifier for pulling aggro based on range to the target
+-- Meele range 1.1 else 1.3
+------------------------------------------------------------------------
+function ThreatLib:GetPullAggroRangeModifier(unitGUID, targetGUID)
+	return 1.1 -- TODO
+end
+
+------------------------------------------------------------------------
 -- :SendThreatTo("GUIDOfGroupMember", "enemyGUID", threatValue)
 -- Arguments:
 --   string - guid of the group member to send threat to
@@ -1626,74 +1639,69 @@ function ThreatLib:UnitDetailedThreatSituation(unit, target)
 
 	threatValue = self:GetThreat(unitGUID, targetGUID) or 0
 
-	if threatValue == 0 then
+	if threatValue <= 0 then
 		return isTanking, threatStatus, threatPercent, rawThreatPercent, threatValue
 	end
 
-	local maxThreat, maxGUID = self:GetMaxThreatOnTarget(targetGUID)
-
-	local tankGUID
-	local tankThreat
-
+	-- maxThreatValue can never be 0 as unit's threatValue is already greater than 0
+	local maxThreatValue, maxGUID = self:GetMaxThreatOnTarget(targetGUID)
+	local unitPullAggroRangeMod = self:GetPullAggroRangeModifier(unitGUID, targetGUID)
+	
 	local targetTarget = target .. "-target"
 	local targetTargetGUID = UnitGUID(targetTarget)
 
-	if targetTargetGUID then
-		local targetTargetThreat = self:GetThreat(targetTargetGUID, targetGUID) or 0
-
-		tankGUID = targetTargetGUID
-		tankThreat = targetTargetThreat
-
-		for otherUnitGUID in pairs(threatTargets) do
-			local otherUnitThreat = self:GetThreat(otherUnitGUID, targetGUID) or 0
-			local otherUnitAggroMod = 1.3 -- self:InMeleeRange(otherUnitGUID, targetGUID) and 1.1 or 1.3
-
-			if otherUnitThreat >= otherUnitAggroMod * targetTargetThreat and otherUnitThreat > tankThreat then
-				tankGUID = otherUnitGUID
-				tankThreat = otherUnitThreat
-			end
+	-- if we have no targetTarget, the current tank can only be guessed based on max threat
+	-- threatStatus 1 and 2 can't be determined without targetTarget
+	if not targetTargetGUID then
+		rawThreatpercent = threatValue / maxThreatValue * 100
+		if threatValue < maxThreatValue then
+			isTanking = false
+			threatStatus = 0
+			threatPercent = rawThreatpercent / unitPullAggroRangeMod
+		else
+			isTanking = true
+			threatStatus = 3
+			threatPercent = 100
 		end
-	else
-		tankGUID = maxGUID
-		tankThreat = maxThreat
+		return isTanking, threatStatus, threatPercent, rawThreatPercent, floor(threatValue)
 	end
 
-	rawThreatPercent = threatValue / tankThreat * 100
+	-- targetTarget is exactly then the current tank, iff no other unit has more threat than required to overaggro targetTarget
+	-- As the threat required to pull aggro is influenced by the pullAggroRangeModifier of a unit, this is not 
+	-- necessarily the unit with the most threat.
+	--
+	-- Imagine targetTarget has 1000 threat, a meele player has 1200 threat and a range player has 1250 threat
+	-- In this case, targetTarget is clearly not the tank as the meele player has enough threat to gain aggro.
+	-- Meanwhile the range player has more threat than the meele player, but not enough to gain aggro from targetTarget
+	-- In this case, the meele player needs to be considered the tank.
+	--
+	-- Now imagine targetTarget has 1000 threat, a meele player has 1200 threat and a range player has 1400 threat
+	-- Both range and meele have more threat than required to overaggro targetTarget. However, we can't correctly
+	-- determine the currentTank, because the range player does not have enough threat to overaggro the meele player,
+	-- who might be actively tanking.
+	--
+	-- As considering all other units only solves the edge case, some range players have more than 110% but less 
+	-- than 130% threat and some meeles have more than 110% threat of targetTarget, we simplify this function 
+	-- and save some CPU by only checking against the target with the highest threat.
 
-	if unitGUID == tankGUID then
-		threatPercent = 100
+	local targetTargetThreatValue = self:GetThreat(targetTargetGUID, targetGUID) or 0
+	local maxPullAggroRangeMod = self:GetPullAggroRangeModifier(maxGUID, targetGUID)
+
+	local currentTankThreatValue
+	local currentTankGUID
+
+	if maxThreatValue > targetTargetThreatValue * maxPullAggroRangeMod then
+		currentTankThreatValue = maxThreatValue
+		currentTankGUID = maxGUID
 	else
-		local aggroMod
-
-		if unitGUID == UnitGUID("player") then
-			local inMeleeRange = self:UnitInMeleeRange(target)
-
-			if inMeleeRange ~= nil then
-				aggroMod = inMeleeRange and 1.1 or 1.3
-			end
-		end
-
-		-- if not aggroMod then
-		-- 	aggroMod = self:InMeleeRange(unitGUID, targetGUID) and 1.1 or 1.3
-		-- end
-
-		if not aggroMod then -- remove me
-			local _, class = UnitClass(unit)
-
-			if class == "ROGUE" or class == "WARRIOR" then
-				aggroMod = 1.1
-			elseif not UnitIsPlayer(unit) and class ~= "MAGE" then
-				aggroMod = 1.1
-			else
-				aggroMod = 1.3
-			end
-		end
-
-		threatPercent = rawThreatPercent / aggroMod
+		currentTankThreatValue = targetTargetThreatValue
+		currentTankGUID = targetTargetGUID
 	end
 
-	if threatValue >= tankThreat then
-		if unitGUID == tankGUID then
+	rawThreatpercent = threatValue / currentTankThreatValue * 100
+
+	if threatValue >= currentTankThreatValue then
+		if unitGUID == currentTankGUID then
 			isTanking = 1
 
 			if unitGUID == maxGUID then
@@ -1706,9 +1714,13 @@ function ThreatLib:UnitDetailedThreatSituation(unit, target)
 		end
 	end
 
-	threatValue = floor(threatValue)
+	if isTanking then
+		threatPercent = 100
+	else
+		threatPercent = rawThreatPercent / unitPullAggroRangeMod
+	end
 
-	return isTanking, threatStatus, threatPercent, rawThreatPercent, threatValue
+	return isTanking, threatStatus, threatPercent, rawThreatPercent, floor(threatValue)
 end
 
 ------------------------------------------------------------------------
