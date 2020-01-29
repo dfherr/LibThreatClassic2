@@ -1639,10 +1639,11 @@ function ThreatLib:UnitDetailedThreatSituation(unit, target)
 
 	threatValue = self:GetThreat(unitGUID, targetGUID) or 0
 
-	if threatValue == 0 then
+	if threatValue <= 0 then
 		return isTanking, threatStatus, threatPercent, rawThreatPercent, threatValue
 	end
 
+	-- maxThreatValue can never be 0 as unit's threatValue is already greater than 0
 	local maxThreatValue, maxGUID = self:GetMaxThreatOnTarget(targetGUID)
 	local unitPullAggroRangeMod = self:GetPullAggroRangeModifier(unitGUID, targetGUID)
 	
@@ -1656,7 +1657,7 @@ function ThreatLib:UnitDetailedThreatSituation(unit, target)
 		if threatValue < maxThreatValue then
 			isTanking = false
 			threatStatus = 0
-			threatPercent = rawThreatpercent / unitPullAggroRangeMod * 100
+			threatPercent = rawThreatpercent / unitPullAggroRangeMod
 		else
 			isTanking = true
 			threatStatus = 3
