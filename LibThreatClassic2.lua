@@ -206,8 +206,12 @@ local lastPublishedMeleeRange = ThreatLib.lastPublishedMeleeRange
 local partyUnits = ThreatLib.partyUnits
 local partyMemberAgents = ThreatLib.partyMemberAgents
 local partyMemberRevisions = ThreatLib.partyMemberRevisions
-local groupTargetIDs = {}
+local memberTargetIDs = {}
 local cachedTargetIDs = {}
+local currentMemberID
+local currentMemberTargetID
+local nameplateIDs = {}
+local currentNameplateID
 local timers = {}
 local inParty, inRaid = false, false
 local threatChangedSinceLastPublish
@@ -804,10 +808,34 @@ function ThreatLib:PLAYER_REGEN_DISABLED()
 	self.publishMeleeRangeInterval = self:GetPublishMeleeRangeInterval()
 	self.meleeRangeCheckInterval = self:GetMeleeRangeCheckInterval()
 
+	-- We need to soft-reset the cache because it is very likely out-dated...
+	-- (The cache is probably already reset completely at this point.)
+	for targetGUID, targetID in pairs(cachedTargetIDs) do
+		if not targetID then
+			-- Only remove the targetGUIDs that were determined to not
+			-- have matching targetIDs.
+			cachedTargetIDs[targetGUID] = nil
+		end
+	end
+
+	currentMemberID, currentMemberTargetID = next(memberTargetIDs)
+
+	-- ... and reset the nameplateIDs ...
+	wipe(nameplateIDs)
+
+	for _, nameplate in pairs(C_NamePlate.GetNamePlates(false)) do
+		local nameplateID = nameplate.UnitFrame.unit
+		nameplateIDs[nameplateID] = true
+	end
+
+	currentNameplateID = next(nameplateIDs)
+
+	-- ... because we don't update the cache out-of-combat.
+
 	self:RegisterEvent("UNIT_TARGET")
 	self:RegisterEvent("PLAYER_TARGET_CHANGED")
 	self:RegisterEvent("NAME_PLATE_UNIT_ADDED")
-	self:RegisterEvent("UPDATE_MOUSEOVER_UNIT")
+	self:RegisterEvent("NAME_PLATE_UNIT_REMOVED")
 
 	_eventFrame:SetScript("OnUpdate", ThreatLib_OnUpdate)
 end
@@ -815,13 +843,6 @@ end
 function ThreatLib:PLAYER_REGEN_ENABLED()
 	-- self.inCombat = false
 	self:ScheduleTPSReset()
-
-	self:UnregisterEvent("UNIT_TARGET")
-	self:UnregisterEvent("PLAYER_TARGET_CHANGED")
-	self:UnregisterEvent("NAME_PLATE_UNIT_ADDED")
-	self:UnregisterEvent("UPDATE_MOUSEOVER_UNIT")
-
-	_eventFrame:SetScript("OnUpdate", nil)
 end
 
 -- #NODOC
@@ -906,14 +927,14 @@ function ThreatLib:UpdateParty()
 end
 
 function ThreatLib:UpdatePartyGUIDs()
-	wipe(groupTargetIDs)
+	wipe(memberTargetIDs)
 	wipe(meleeRangeDefault)
 
 	if not inRaid then
-		groupTargetIDs["player"] = "target"
+		memberTargetIDs["player"] = "target"
 
 		if UnitExists("pet") then
-			groupTargetIDs["pet"] = "pettarget"
+			memberTargetIDs["pet"] = "pettarget"
 		end
 
 		self:_setInMeleeRangeDefault("player")
@@ -938,14 +959,25 @@ function ThreatLib:UpdatePartyGUIDs()
 			if petGUID then
 				guidLookup[petGUID] = UnitName(petID)
 
-				groupTargetIDs[petID] = petID .. "target"
+				memberTargetIDs[petID] = petID .. "target"
 				self:_setInMeleeRangeDefault(petID)
 			end
 
-			groupTargetIDs[unitID] = unitID .. "target"
+			memberTargetIDs[unitID] = unitID .. "target"
 			self:_setInMeleeRangeDefault(unitID)
 		end
 	end
+
+	-- The group changed, and therefore we need to soft-reset the cache.
+	for targetGUID, targetID in pairs(cachedTargetIDs) do
+		if not targetID then
+			-- Only remove the targetGUIDs that were determined to not
+			-- have matching targetIDs.
+			cachedTargetIDs[targetGUID] = nil
+		end
+	end
+
+	currentMemberID, currentMemberTargetID = next(memberTargetIDs)
 end
 
 function ThreatLib:UNIT_PET(event, unit)
@@ -971,11 +1003,16 @@ function ThreatLib:GROUP_ROSTER_UPDATE()
 end
 
 function ThreatLib:UNIT_TARGET(event, unitID)
-	local targetID = groupTargetIDs[unitID]
-	local targetGUID = targetID and UnitGUID(targetID)
+	local targetID = memberTargetIDs[unitID]
 
-	if targetGUID then
-		cachedTargetIDs[targetGUID] = targetID
+	if targetID then
+		local targetGUID = UnitGUID(targetID)
+
+		if targetGUID then
+			cachedTargetIDs[targetGUID] = targetID
+		end
+
+		currentMemberID, currentMemberTargetID = next(memberTargetIDs)
 	end
 end
 
@@ -985,6 +1022,8 @@ function ThreatLib:PLAYER_TARGET_CHANGED()
 	if targetGUID then
 		cachedTargetIDs[targetGUID] = "target"
 	end
+
+	currentMemberID, currentMemberTargetID = next(memberTargetIDs)
 end
 
 function ThreatLib:NAME_PLATE_UNIT_ADDED(event, nameplateID)
@@ -993,14 +1032,14 @@ function ThreatLib:NAME_PLATE_UNIT_ADDED(event, nameplateID)
 	if nameplateGUID then
 		cachedTargetIDs[nameplateGUID] = nameplateID
 	end
+
+	nameplateIDs[nameplateID] = true
+	currentNameplateID = next(nameplateIDs)
 end
 
-function ThreatLib:UPDATE_MOUSEOVER_UNIT()
-	local mouseoverGUID = UnitGUID("mouseover")
-
-	if mouseoverGUID then
-		cachedTargetIDs[mouseoverGUID] = "mouseover"
-	end
+function ThreatLib:NAME_PLATE_UNIT_REMOVED(event, nameplateID)
+	nameplateIDs[nameplateID] = nil
+	currentNameplateID = next(nameplateIDs)
 end
 
 ------------------------------------------------------------------------
@@ -1230,6 +1269,15 @@ function ThreatLib:_clearAllThreat()
 
 	wipe(cachedTargetIDs)
 
+	wipe(nameplateIDs)
+
+	self:UnregisterEvent("UNIT_TARGET")
+	self:UnregisterEvent("PLAYER_TARGET_CHANGED")
+	self:UnregisterEvent("NAME_PLATE_UNIT_ADDED")
+	self:UnregisterEvent("NAME_PLATE_UNIT_REMOVED")
+
+	_eventFrame:SetScript("OnUpdate", nil)
+
 	-- self:Debug("Clearing ALL threat!")
 	_callbacks:Fire("ThreatCleared")
 end
@@ -1270,6 +1318,8 @@ function ThreatLib:_clearThreat(guid)
 		for k,v in pairs(lastPublishedThreat.pet) do
 			lastPublishedThreat.pet[k] = nil
 		end
+
+		threatChangedSinceLastPublish = nil
 	end
 
 	if threatTargets[guid] then
@@ -1928,6 +1978,102 @@ function ThreatLib:IsActive()
 	return self.running or false
 end
 
+function ThreatLib:FindTargetID(targetGUID)
+	-- We are looking for a targetID that matches targetGUID.
+	-- We proceed as lazily as possible, always checking the cache first.
+	-- If the cache entry is invalid, we remove it and continue
+	-- to search for the targetID. During the search we always
+	-- cache targetIDs as they might be needed for the remaining and future
+	-- targetGUIDs. We check the following unit ids:
+	--     target, pettarget, party%dtarget, partypet%dtarget,
+	--     raid%dtarget, raidpet%dtarget, nameplate%d
+	-- If we can't find a matching targetID within these ids, then there
+	-- almost certainly isn't one. Theoretically raid1targettarget could be a
+	-- match for example, while the ones above are not, but then raid1target is
+	-- someone who is not in the group and friendly. This can only happen in the
+	-- open world. So in an instance we already exhaust all candidates, except
+	-- for mouseover, but it should be highly unlikely that this one would be
+	-- the only matching unit id in a realistic scenario.
+
+	-- If we wanted to include mouseover, we would have to do it right here like this.
+	-- do
+	--     local mouseoverGUID = UnitGUID("mouseover")
+
+	--     if mouseoverGUID then
+	--         cachedTargetIDs[mouseoverGUID] = "mouseover"
+	--     end
+	-- end
+
+	-- Lookup targetGUID in the cache.
+	local targetID = cachedTargetIDs[targetGUID]
+
+	-- Check if the entry in the cache is valid.
+	if targetID and targetGUID ~= UnitGUID(targetID) then
+		targetID = nil
+	end
+
+	if targetID then
+		-- Valid cache entry. Return!
+		return targetID
+	elseif targetID == false then
+		-- The targetGUID was already checked, and there is not matching targetID.
+		return nil
+	end
+
+	-- targetID is nil and targetGUID was never added to the cache.
+
+	-- If there is no matching targetID in the cache, then search in
+	-- memberTargetIDs for a targetID that matches targetGUID.
+	while not targetID and currentMemberID do
+		-- No targetID found yet; continue to search in memberTargetIDs.
+		local currentMemberTargetGUID = UnitGUID(currentMemberTargetID)
+
+		if currentMemberTargetGUID then
+			-- Cache currentMemberTargetID.
+			cachedTargetIDs[currentMemberTargetGUID] = currentMemberTargetID
+
+			if currentMemberTargetGUID == targetGUID then
+				-- Match!
+				targetID = currentMemberTargetID
+			end
+		end
+
+		currentMemberID, currentMemberTargetID = next(memberTargetIDs, currentMemberID)
+	end
+
+	-- If we couldn't find a matching targetID in memberTargetIDs, then search in nameplates.
+	while not targetID and currentNameplateID do
+		-- No targetID found yet; continue to search in nameplateIDs.
+		local currentNameplateGUID = UnitGUID(currentNameplateID)
+
+		if currentNameplateGUID then
+			-- Cache currentNameplateID.
+			cachedTargetIDs[currentNameplateGUID] = currentNameplateID
+
+			if currentNameplateGUID == targetGUID then
+				-- Match!
+				targetID = currentNameplateID
+			end
+		end
+
+		currentNameplateID = next(nameplateIDs, currentNameplateID)
+	end
+
+	-- At this point we might or might not have a matching targetID.
+	-- If we didn't find one, then there almost certainly isn't one.
+
+	if not targetID then
+		-- If no targetID was found, add it to the cache with false
+		-- to indicate that it was already determined that there is not
+		-- targetID matching targetGUID in the current set of unit ids.
+		-- As soon as a unit id points to targetGUID, the false is
+		-- overwritten, and targetGUID will be checked again.
+		cachedTargetIDs[targetGUID] = false
+	end
+
+	return targetID
+end
+
 function ThreatLib_OnUpdate()
 	local time = GetTime()
 
@@ -1935,98 +2081,9 @@ function ThreatLib_OnUpdate()
 		local playerThreatTargets = ThreatLib.threatTargets[playerGUID]
 
 		if playerThreatTargets then
-			local currentID, currentTargetID = next(groupTargetIDs)
-			local nameplates, currentNameplateIndex, currentNameplate
-			local mouseoverChecked
-
-			-- For each targetGUID we need to find a matching targetID in order to
-			-- perform the range check. We proceed as lazily as possible; always
-			-- checking the cache first. If the cache entry is invalid, we remove it
-			-- and continue searching for the targetID. During the search we always
-			-- cache targetIDs as they might be needed for the remaining and future
-			-- targetGUIDs. We check the following unit ids:
-			--     target, pettarget, partyNtarget, partypetNtarget,
-			--     raidNtarget, raidpetNtarget, nameplateN, mouseover
-			-- If we can't find a matching targetID within these ids, then there
-			-- almost certainly isn't one. Theoretically raid1targettarget could be a
-			-- match for example, while the ones above are not, but then raid1target is
-			-- someone who is not in the group and friendly. This can only happen in the
-			-- open world. So in an instance we already exhaust all candidates.
-
 			for targetGUID in pairs(playerThreatTargets) do
-				-- Lookup targetGUID in cache.
-				local targetID = cachedTargetIDs[targetGUID]
-
-				-- Check if the entry in the cache is valid.
-				if targetID and targetGUID ~= UnitGUID(targetID) then
-					-- Invalid cache entry; remove from cache.
-					cachedTargetIDs[targetGUID] = nil
-					targetID = nil
-				end
-
-				-- If there is no valid targetID in the cache, then search in
-				-- groupTargetIDs for a targetID that matches targetGUID.
-				while not targetID and currentID do
-					-- No targetID found yet; continue to search in groupTargetIDs.
-					local currentTargetGUID = UnitGUID(currentTargetID)
-
-					if currentTargetGUID then
-						-- Cache targetID.
-						cachedTargetIDs[currentTargetGUID] = currentTargetID
-
-						if currentTargetGUID == targetGUID then
-							-- Match!
-							targetID = currentTargetID
-						end
-					end
-
-					currentID, currentTargetID = next(groupTargetIDs, currentID)
-				end
-
-				-- If we couldn't find a matching targetID in groupTargetIDs, then search in nameplates,
-				if not targetID then
-					if not nameplates then
-						nameplates = C_NamePlate.GetNamePlates(false)
-						currentNameplateIndex, currentNameplate = next(nameplates)
-					end
-
-					while not targetID and currentNameplateIndex do
-						local currentTargetID = currentNameplate.UnitFrame.unit
-						local currentTargetGUID = UnitGUID(currentTargetID)
-
-						if currentTargetGUID then
-							cachedTargetIDs[currentTargetGUID] = currentTargetID
-
-							if currentTargetGUID == targetGUID then
-								targetID = currentTargetID
-							end
-						end
-
-						currentNameplateIndex, currentNameplate = next(nameplates, currentNameplateIndex)
-					end
-				end
-
-				-- If we still didn't find anything, try mouseover,
-				if not targetID and not mouseoverChecked then
-					local currentTargetID = "mouseover"
-					local currentTargetGUID = UnitGUID(currentTargetID)
-
-					if currentTargetGUID then
-						cachedTargetIDs[currentTargetGUID] = currentTargetID
-
-						if currentTargetGUID == targetGUID then
-							targetID = currentTargetID
-						end
-					end
-
-					mouseoverChecked = true
-				end
-
-				-- At this point we might or might not have a matching targetID.
-				-- If we didn't find one, then there almost certainly isn't one.
-
+				local targetID = ThreatLib:FindTargetID(targetGUID)
 				local inMeleeRange = targetID and ThreatLib:UnitInMeleeRange(targetID)
-
 				ThreatLib:MeleeRangeUpdated(playerGUID, targetGUID, inMeleeRange)
 			end
 		end
