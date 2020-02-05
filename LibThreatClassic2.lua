@@ -2240,6 +2240,40 @@ end
 --  integer - returns the threat status for the unit on the mob, or nil if unit is not on mob's threat table. (3 = securely tanking, 2 = insecurely tanking, 1 = not tanking but higher threat than tank, 0 = not tanking and lower threat than tank)
 ------------------------------------------------------------------------
 function ThreatLib:UnitThreatSituation(unit, target)
-	if not UnitExists(unit) or not UnitExists(target) then return 0 end
-	return select(2, self:UnitDetailedThreatSituation(unit, target))
+	if target then
+		return select(2, self:UnitDetailedThreatSituation(unit, target))
+	end
+
+	local maxThreatStatus = 0
+
+	local unitGUID = UnitGUID(unit)
+	local unitThreatTargets = unitGUID and self.threatTargets[unitGUID]
+
+	if not unitThreatTargets then
+		return maxThreatStatus
+	end
+
+	for targetGUID in pairs(unitThreatTargets) do
+		local threatStatus
+
+		target = self:FindTargetID(targetGUID)
+
+		if target then
+			threatStatus = select(2, self:UnitDetailedThreatSituation(unit, target))
+		else
+			local threatValue = self:GetThreat(unitGUID, targetGUID) or 0
+
+			if threatValue > 0 and threatValue == self:GetMaxThreatOnTarget(targetGUID) then
+				threatStatus = 3
+			else
+				threatStatus = 0
+			end
+		end
+
+		if threatStatus > maxThreatStatus then
+			maxThreatStatus = threatStatus
+		end
+	end
+
+	return maxThreatStatus
 end
