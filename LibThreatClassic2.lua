@@ -1846,7 +1846,7 @@ end
 -- Meele range 1.1 else 1.3
 ------------------------------------------------------------------------
 function ThreatLib:GetPullAggroRangeModifier(unitGUID, targetGUID)
-	return 1.1 -- TODO
+	return self:InMeleeRange(unitGUID, targetGUID) and 1.1 or 1.3
 end
 
 ------------------------------------------------------------------------
