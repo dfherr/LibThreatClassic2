@@ -502,6 +502,12 @@ ThreatLib.BLACKLIST_MOB_IDS = {
 	-- AQ40
 	[15630] = true,		-- Spawn of Fankriss
 
+	-- BWL
+	[14022] = true,		-- Corrupted Red Whelp
+	[14023] = true,		-- Corrupted Green Whelp
+	[14024] = true,		-- Corrupted Blue Whelp
+	[14025] = true,		-- Corrupted Bronze Whelp
+
 	-- Strathholme
 	[11197] = true,		-- Mindless Skeleton
 	[11030] = true,		-- Mindless Zombie
