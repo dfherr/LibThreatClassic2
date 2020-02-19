@@ -507,6 +507,7 @@ ThreatLib.BLACKLIST_MOB_IDS = {
 	[14023] = true,		-- Corrupted Green Whelp
 	[14024] = true,		-- Corrupted Blue Whelp
 	[14025] = true,		-- Corrupted Bronze Whelp
+	[14668] = true,		-- Corrupted Infernal
 
 	-- Strathholme
 	[11197] = true,		-- Mindless Skeleton
