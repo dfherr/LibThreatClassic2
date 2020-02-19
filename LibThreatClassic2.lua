@@ -1728,6 +1728,31 @@ function ThreatLib:UnitDetailedThreatSituation(unit, target)
 end
 
 ------------------------------------------------------------------------
+-- :UnitThreatPercentageOfLead("unit", "mob")
+-- Arguments: 
+--  string - unitID of the unit to get threat information for.
+--  string - unitID of the target unit to reference.
+-- Returns:
+--  integer - returns the relative threat percentage compared to the next highest (if tanking) or highest on the threat list
+------------------------------------------------------------------------
+function ThreatLib:UnitThreatPercentageOfLead(unit, target)
+	local unitGUID, targetGUID = UnitGUID(unit), UnitGUID(target)
+	if not (unitGUID and targetGUID) then return nil end
+
+	local unitValue = self:GetThreat(unitGUID, targetGUID)
+	if unitValue == 0 then return 0 end
+
+	local maxValue = 0
+	for otherGUID in next, threatTargets do
+		if otherGUID ~= unitGUID then
+			local value = self:GetThreat(otherGUID, targetGUID)
+			if value > maxValue then maxValue = value end
+		end
+	end
+	return maxValue > 0 and (100 * unitValue / maxValue) or 100
+end
+
+------------------------------------------------------------------------
 -- :UnitThreatSituation("unit", "mob")
 -- Arguments: 
 --  string - unitID of the unit to get threat information for.
