@@ -1737,7 +1737,7 @@ end
 ------------------------------------------------------------------------
 function ThreatLib:UnitThreatPercentageOfLead(unit, target)
 	local unitGUID, targetGUID = UnitGUID(unit), UnitGUID(target)
-	if not (unitGUID and targetGUID) then return nil end
+	if not (unitGUID and targetGUID) then return 0 end
 
 	local unitValue = self:GetThreat(unitGUID, targetGUID)
 	if unitValue == 0 then return 0 end
@@ -1749,7 +1749,7 @@ function ThreatLib:UnitThreatPercentageOfLead(unit, target)
 			if value > maxValue then maxValue = value end
 		end
 	end
-	return maxValue > 0 and (100 * unitValue / maxValue) or 100
+	return maxValue > 0 and (100 * unitValue / maxValue) or 0
 end
 
 ------------------------------------------------------------------------
