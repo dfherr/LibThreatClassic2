@@ -128,12 +128,16 @@ local threatValues = {
 }
 
 local function init(self, t, f)
-	local func = function(self, spellID, target)
-		self:AddTargetThreat(target, f(self, spellID))
-	end
-	for k, v in pairs(t) do
-		self.CastLandedHandlers[k] = func
-	end
+    local castHandler = function(self, spellID, target)
+        self:AddTargetThreat(target, f(self, spellID))
+    end
+    local castMissHandler = function(self, spellID, target)
+        self:AddTargetThreat(target, -f(self, spellID))
+    end
+    for k, v in pairs(t) do
+        self.CastLandedHandlers[k] = castHandler
+        self.CastMissHandlers[v] = castMissHandler
+    end
 end
 
 function Warrior:ClassInit()
