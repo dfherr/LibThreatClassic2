@@ -324,6 +324,10 @@ function prototype:OnInitialize()
 		self:AddThreat(-800 * self:threatMods())
 	end
 
+	self.CastMissHandlers[28548] = function(self)
+		self:AddThreat(800 * self:threatMods())
+	end
+
 	-- Imp LOTP heals are 0 threat, and in the prototype as any class can proc them
 	self.ExemptGains = newHash()
 	self.ExemptGains[34299] = true

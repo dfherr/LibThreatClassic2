@@ -33,9 +33,11 @@ local threatTable = {
 function Hunter:ClassInit()
 	for k, v in pairs(threatTable["DistractingShot"]) do
 		self.CastLandedHandlers[k] = self.DistractingShot
+		self.CastMissHandlers[k] = self.DistractingShotMiss
 	end
 	for k, v in pairs(threatTable["Disengage"]) do
 		self.CastLandedHandlers[k] = self.Disengage
+		self.CastMissHandlers[k] = self.DisengageMiss
 	end
 
 	self.CastHandlers[5384] = self.FeignDeath
@@ -58,10 +60,21 @@ function Hunter:DistractingShot(spellID, target)
 	self:AddTargetThreat(target, amt * self:threatMods())
 end
 
+function Hunter:DistractingShotMiss(spellID, target)
+	local amt = threatTable["DistractingShot"][spellID]
+	self:AddTargetThreat(target, -(amt * self:threatMods()))
+end
+
 function Hunter:Disengage(spellID, target)
 	ThreatLib:Debug("Disengage caught, %s", spellID)
 	local amt = threatTable["Disengage"][spellID]
 	self:AddTargetThreat(target, amt * self:threatMods())
+end
+
+function Hunter:DisengageMiss(spellID, target)
+	ThreatLib:Debug("Disengage fail caught, %s", spellID)
+	local amt = threatTable["Disengage"][spellID]
+	self:AddTargetThreat(target, -(amt * self:threatMods()))
 end
 
 -- Feign is a rather unique case. It's cast on all targets, but may be resisted by any one target. There is no combat log message - only an error event with ERR_FEIGN_DEATH_RESISTED from GlobalStrings

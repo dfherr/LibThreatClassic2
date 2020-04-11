@@ -128,11 +128,15 @@ local threatValues = {
 }
 
 local function init(self, t, f)
-	local func = function(self, spellID, target)
+	local funcSuccess = function(self, spellID, target)
 		self:AddTargetThreat(target, f(self, spellID))
 	end
+	local funcMiss = function(self, spellID, target)
+		self:AddTargetThreat(target, -f(self, spellID))
+	end
 	for k, v in pairs(t) do
-		self.CastLandedHandlers[k] = func
+		self.CastLandedHandlers[k] = funcSuccess
+		self.CastMissHandlers[k] = funcMiss
 	end
 end
 

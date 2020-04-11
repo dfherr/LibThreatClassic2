@@ -58,9 +58,11 @@ function Druid:ClassInit()
 
 	for k, v in pairs(threatValues.faerieFire) do
 		self.CastLandedHandlers[k] = self.FaerieFire
+		self.CastMissHandlers[k] = self.FaerieFireMiss
 	end
 	for k, v in pairs(threatValues.cower) do
 		self.CastLandedHandlers[k] = self.Cower
+		self.CastMissHandlers[k] = self.CowerMiss
 	end
 
 	for k, v in pairs(threatValues.demoralizingRoar) do
@@ -157,6 +159,10 @@ function Druid:FaerieFire(spellID, target)
 	self:AddTargetThreat(target, threatValues.faerieFire[spellID] * self:threatMods())
 end
 
+function Druid:FaerieFireMiss(spellID, target)
+	self:AddTargetThreat(target, -(threatValues.faerieFire[spellID] * self:threatMods()))
+end
+
 function Druid:Maul(amount)
 	return amount * 1.75
 end
@@ -167,6 +173,10 @@ end
 
 function Druid:Cower(spellID, target)
 	self:AddTargetThreat(target, threatValues.cower[spellID] * self:threatMods() * -1)
+end
+
+function Druid:CowerMiss(spellID, target)
+	self:AddTargetThreat(target, threatValues.cower[spellID] * self:threatMods())
 end
 
 function Druid:DemoralizingRoar(spellID, target)
