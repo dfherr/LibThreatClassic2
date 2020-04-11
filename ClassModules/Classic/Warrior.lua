@@ -141,8 +141,8 @@ local function init(self, t, f)
 end
 
 function Warrior:ClassInit()
-	-- Taunt
-	self.CastLandedHandlers[355] = self.Taunt
+	-- Taunt. Assumption that all successful taunts apply a debuff to the mob
+	self.MobDebuffHandlers[355] = self.Taunt
 
 	init(self, threatValues.heroicStrike, self.HeroicStrike)
 	init(self, threatValues.cleave, self.Cleave)
@@ -229,24 +229,15 @@ local pendingTauntOffset = nil
 function Warrior:Taunt(spellID, target)
 	local targetThreat = ThreatLib:GetThreat(UnitGUID("targettarget"), target)
 	local myThreat = ThreatLib:GetThreat(UnitGUID("player"), target)
+	
 	if targetThreat > 0 and targetThreat > myThreat then
-		pendingTauntTarget = target
-		pendingTauntOffset = targetThreat-myThreat
+		self:AddTargetThreat(target, targetThreat-myThreat)
+		ThreatLib:PublishThreat()
 	elseif targetThreat == 0 then
 		local maxThreat = ThreatLib:GetMaxThreatOnTarget(target)
-		pendingTauntTarget = target
-		pendingTauntOffset = maxThreat-myThreat
-	end
-	self.nextEventHook = self.TauntNextHook
-end
-
-function Warrior:TauntNextHook(timestamp, subEvent, hideCaster, sourceGUID, sourceName, sourceFlags, sourceRaidFlags, destGUID, destName, destFlags, destRaidFlags, spellID)
-	if pendingTauntTarget and (subEvent ~= "SPELL_MISSED" or spellID ~= 355) then
-		self:AddTargetThreat(pendingTauntTarget, pendingTauntOffset)
+		self:AddTargetThreat(target, maxThreat-myThreat)
 		ThreatLib:PublishThreat()
 	end
-	pendingTauntTarget = nil
-	pendingTauntOffset = nil
 end
 
 function Warrior:HeroicStrike(spellID)
