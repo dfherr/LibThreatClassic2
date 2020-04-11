@@ -1005,16 +1005,8 @@ end
 
 function prototype:parseCast(recipient, spellId, spellName)
 	spellId = ThreatLib:GetSpellID(spellName) or spellId
-
-	if self.unitType == "pet" then
-		-- Pets don't get UNIT_SPELLCAST_SUCCEEDED, so we just parse their handlers here.
-		if self.CastLandedHandlers[spellId] then
-			self.CastLandedHandlers[spellId](self, spellId, recipient)
-		end
-	else
-		if self.CastLandedHandlers[spellId] then
-			self.CastLandedHandlers[spellId](self, spellId, recipient)
-		end
+	if self.CastLandedHandlers[spellId] then
+		self.CastLandedHandlers[spellId](self, spellId, recipient)
 	end
 end
 
