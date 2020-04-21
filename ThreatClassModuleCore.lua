@@ -233,13 +233,6 @@ local BuffModifiers = {
 			self:AddBuffThreatMultiplier(value)
 		end
 	end,
-
-	-- Pain Suppression - Maybe 44416? Need to test!
-	[33206] = function(self, action)
-		if action == "gain" then
-			self:MultiplyThreat(0.95)
-		end
-	end
 }
 
 local DebuffModifiers = {
@@ -337,6 +330,13 @@ function prototype:OnInitialize()
 		self:AddTargetThreat(target, 90 * self:threatMods())
 		thunderfury.lastMobGUID = target
 		thunderfury.lastHitTimestamp = timestamp
+	end
+
+	-- Pain Suppression - Maybe 44416?
+	self.BuffHandlers[33206] = function(self, action)
+		if action == "gain" then
+			self:MultiplyThreat(0.95)
+		end
 	end
 
 	self.SpellReflectSources = new()
@@ -466,6 +466,7 @@ function prototype:Boot()
 	self:RegisterEvent("PLAYER_DEAD", "PLAYER_REGEN_ENABLED")
 	self:RegisterEvent("PLAYER_REGEN_DISABLED")
 	self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+	self:RegisterEvent("UNIT_AURA")
 
 	ThreatLib:Debug("Initialized actor module")
 
@@ -503,6 +504,7 @@ function prototype:OnDisable()
 	self:UnregisterEvent("PLAYER_DEAD")
 	self:UnregisterEvent("PLAYER_REGEN_DISABLED")
 	self:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
+	self:UnregisterEvent("UNIT_AURA")
 end
 
 local AFFILIATION_IN_GROUP = bit_bor(COMBATLOG_OBJECT_AFFILIATION_PARTY, COMBATLOG_OBJECT_AFFILIATION_RAID, COMBATLOG_OBJECT_AFFILIATION_MINE)
@@ -587,27 +589,14 @@ function cleuHandlers:SPELL_AURA_APPLIED(timestamp, subEvent, hideCaster, source
 	if bit_band(destFlags, self.unitTypeFilter) == self.unitTypeFilter then
 		-- spellId = ThreatLib.Classic and ThreatLib:GetSpellID(spellName, "player", auraType) or spellId
 		spellId = ThreatLib:GetSpellID(spellName, "player", auraType) or spellId
-		local rb, rd = false, false
 		ThreatLib:Debug("Applied spell %s ID %s ", spellName, spellId)
-		if BuffModifiers[spellId] then
-			BuffModifiers[spellId](self, "gain", spellId)
-			rb = true
-		elseif DebuffModifiers[spellId] then
-			DebuffModifiers[spellId](self, "gain", spellId)
-			rd = true
-		end
-
 		if self.BuffHandlers[spellId] then
 			ThreatLib:Debug("Running gain handler for spell ID %s", spellId)
 			self.BuffHandlers[spellId](self, "gain", spellId, 1)
-			rb = true
 		end
 		if self.DebuffHandlers[spellId] then
 			self.DebuffHandlers[spellId](self, "gain", spellId, 1)
-			rd = true
 		end
-		if rb then self:calcBuffMods("gain", spellId) end
-		if rd then self:calcDebuffMods("gain", spellId) end
 	elseif auraType == AURA_TYPE_DEBUFF and bit_band(sourceFlags, self.unitTypeFilter) == self.unitTypeFilter and bit_band(destFlags, COMBATLOG_OBJECT_REACTION_HOSTILE) == COMBATLOG_OBJECT_REACTION_HOSTILE then
 		spellId = ThreatLib:GetSpellID(spellName, "target", auraType) or spellId
 		ThreatLib:Debug("aura applied debuff spellId %s name %s", spellId, spellName)
@@ -652,17 +641,7 @@ function cleuHandlers:SPELL_AURA_REMOVED(timestamp, subEvent, hideCaster, source
 	if bit_band(destFlags, self.unitTypeFilter) == self.unitTypeFilter then
 		-- spellId = ThreatLib.Classic and ThreatLib:GetSpellID(spellName) or spellId
 		spellId = ThreatLib:GetSpellID(spellName) or spellId
-		local rb, rd = false, false
 		ThreatLib:Debug("Removed spell %s ID %s ", spellName, spellId)
-		if BuffModifiers[spellId] then
-			ThreatLib:Debug("Running buff loss handler for spell ID %s", spellId)
-			BuffModifiers[spellId](self, "lose", spellId)
-			rb = true
-		elseif DebuffModifiers[spellId] then
-			ThreatLib:Debug("Running debuff loss handler for spell ID %s", spellId)
-			DebuffModifiers[spellId](self, "lose", spellId)
-			rd = true
-		end
 
 		if self.BuffHandlers[spellId] then
 			ThreatLib:Debug("Running buff loss handler for spell ID %s", spellId)
@@ -673,8 +652,6 @@ function cleuHandlers:SPELL_AURA_REMOVED(timestamp, subEvent, hideCaster, source
 			self.DebuffHandlers[spellId](self, "lose", spellId, 1)
 			rd = true
 		end
-		if rb then self:calcBuffMods("lose", spellId) end
-		if rd then self:calcDebuffMods("lose", spellId) end
 	end
 end
 
@@ -1041,8 +1018,18 @@ function prototype:parseCast(recipient, spellId, spellName)
 	end
 end
 
+function prototype:UNIT_AURA(event, unitId)
+	if unitId == "player" then
+		ThreatLib:Debug("Unit aura changed %s", unitId)
+		self:calcBuffMods()
+		self:calcDebuffMods()
+	end
+end
+
 function prototype:PLAYER_REGEN_DISABLED()
 	self.totalThreatMods = nil
+	self:calcBuffMods()
+	self:calcDebuffMods()
 	if not ThreatLib.running then return end
 	self.threatActive = true
 end
