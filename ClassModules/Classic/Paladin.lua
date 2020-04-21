@@ -11,7 +11,7 @@ local SCHOOL_MASK_HOLY = _G.SCHOOL_MASK_HOLY or 0x02
 
 local format = _G.format
 local UnitClass = _G.UnitClass
-local UnitInRange = _G.UnitInRange
+local UnitIsVisible = _G.UnitIsVisible
 local UnitIsGhost = _G.UnitIsGhost
 local UnitIsConnected = _G.UnitIsConnected
 local IsInRaid = _G.IsInRaid
@@ -197,7 +197,7 @@ function Paladin:ClassCounter(className)
 	for i = 1, numMembers do
 		local unit = format(unitToken, i)
 
-		if UnitIsConnected(unit) and UnitInRange(unit) and not UnitIsGhost(unit) then
+		if UnitIsConnected(unit) and UnitIsVisible(unit) and not UnitIsGhost(unit) then
 			if select(2, UnitClass(unit)) == className then
 				countClass = countClass + 1
 			end
