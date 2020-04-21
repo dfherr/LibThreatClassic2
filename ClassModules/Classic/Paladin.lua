@@ -111,10 +111,10 @@ local CLEANSE_SPELL_ID = 4987
 function Paladin:ClassInit()
 	--adding threat for blessings
 	for k, v in pairs(threatValues.greaterBlessing) do
-		self.CastLandedHandlers[k] = self.GreaterBlessing
+		self.CastSuccessHandlers[k] = self.GreaterBlessing
 	end
 	for k, v in pairs(threatValues.lesserBlessing) do
-		self.CastLandedHandlers[k] = self.Blessing
+		self.CastSuccessHandlers[k] = self.Blessing
 	end
 
 	self.schoolThreatMods[SCHOOL_MASK_HOLY] = self.RighteousFury
