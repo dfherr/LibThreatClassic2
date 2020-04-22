@@ -293,8 +293,16 @@ local DebuffModifiers = {
 ------------------------------------------
 function prototype:OnInitialize()
 	if self.initted then return end
-	self.timers = self.timers or {}
 	self.initted = true
+	self.timers = self.timers or {}
+
+	self.unitEventFrame = self.unitEventFrame or CreateFrame("Frame", self:GetName().."-eventFrame")
+	self.unitEventFrame:SetScript("OnEvent", function(eventSelf, event, ...)
+		-- eventSelf is the context of the onEvent handler, while self is the
+		-- LTC2 class module initialized by Ace based on the prototype
+		return self[event] and self[event](self, event, ...)
+	end)
+	
 	ThreatLib:Debug("Init %s", self:GetName())
 	self.unitType = "player"
 
@@ -466,7 +474,7 @@ function prototype:Boot()
 	self:RegisterEvent("PLAYER_DEAD", "PLAYER_REGEN_ENABLED")
 	self:RegisterEvent("PLAYER_REGEN_DISABLED")
 	self:RegisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-	self:RegisterEvent("UNIT_AURA")
+	self.unitEventFrame:RegisterUnitEvent("UNIT_AURA", "player")
 
 	ThreatLib:Debug("Initialized actor module")
 
@@ -504,7 +512,7 @@ function prototype:OnDisable()
 	self:UnregisterEvent("PLAYER_DEAD")
 	self:UnregisterEvent("PLAYER_REGEN_DISABLED")
 	self:UnregisterEvent("COMBAT_LOG_EVENT_UNFILTERED")
-	self:UnregisterEvent("UNIT_AURA")
+	self.unitEventFrame:UnregisterEvent("UNIT_AURA")
 end
 
 local AFFILIATION_IN_GROUP = bit_bor(COMBATLOG_OBJECT_AFFILIATION_PARTY, COMBATLOG_OBJECT_AFFILIATION_RAID, COMBATLOG_OBJECT_AFFILIATION_MINE)
@@ -1019,11 +1027,9 @@ function prototype:parseCast(recipient, spellId, spellName)
 end
 
 function prototype:UNIT_AURA(event, unitId)
-	if unitId == "player" then
-		ThreatLib:Debug("Unit aura changed %s", unitId)
-		self:calcBuffMods()
-		self:calcDebuffMods()
-	end
+	ThreatLib:Debug("Unit aura changed %s", unitId)
+	self:calcBuffMods()
+	self:calcDebuffMods()
 end
 
 function prototype:PLAYER_REGEN_DISABLED()
