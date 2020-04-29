@@ -1743,7 +1743,7 @@ function ThreatLib:UnitThreatPercentageOfLead(unit, target)
 	if unitValue == 0 then return 0 end
 
 	local maxValue = 0
-	for otherGUID in next, threatTargets do
+	for otherGUID in pairs(threatTargets) do
 		if otherGUID ~= unitGUID then
 			local value = self:GetThreat(otherGUID, targetGUID)
 			if value > maxValue then maxValue = value end
