@@ -1644,7 +1644,7 @@ end
 --  float - returns the unit's total threat on the mob.
 ------------------------------------------------------------------------
 function ThreatLib:UnitDetailedThreatSituation(unit, target)
-	local isTanking, threatStatus, threatPercent, rawThreatPercent, threatValue = nil, 0, nil, nil, 0
+	local isTanking, threatStatus, threatPercent, rawThreatPercent, threatValue = false, 0, nil, nil, 0
 
 	local unitGUID, targetGUID = UnitGUID(unit), UnitGUID(target)
 
@@ -1717,7 +1717,7 @@ function ThreatLib:UnitDetailedThreatSituation(unit, target)
 
 	if threatValue >= currentTankThreatValue then
 		if unitGUID == currentTankGUID then
-			isTanking = 1
+			isTanking = true
 
 			if unitGUID == maxGUID then
 				threatStatus = 3
