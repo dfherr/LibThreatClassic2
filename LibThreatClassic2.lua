@@ -398,12 +398,22 @@ function ThreatLib:OnCommReceived(prefix, message, distribution, sender)
 end
 
 function ThreatLib:SendComm(distribution, command, ...)
-	self:SendCommMessage(self.prefix, self:Serialize(self:Memoize(command), ...), distribution)
+	local priority = "NORMAL"
+	if classModule and classModule.isTanking then
+		priority = "ALERT"
+	end
+  
+	self:SendCommMessage(self.prefix, self:Serialize(self:Memoize(command), ...), distribution, nil, priority)
 end
 
 function ThreatLib:SendCommRaw(distribution, command, data)
+	local priority = "NORMAL"
+	if classModule and classModule.isTanking then
+		priority = "ALERT"
+	end
+	
 	local str = self:Memoize(command) .. data
-	self:SendCommMessage(self.prefix, str, distribution)
+	self:SendCommMessage(self.prefix, str, distribution, nil, priority)
 end
 
 function ThreatLib:SendCommWhisper(distribution, to, command, ...)
