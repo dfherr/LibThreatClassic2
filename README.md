@@ -2,7 +2,7 @@
 
 Threat tracking for World of Warcraft Classic. Successor project for [https://github.com/EsreverWoW/LibThreatClassic](https://github.com/EsreverWoW/LibThreatClassic)
 
-The latest version of this library will always be available through the addon [ThreatClassic2](https://github.com/dfherr/ThreatClassic2)
+This library is now obsolete and instead the ingame API can be used again. [ThreatClassic2](https://github.com/dfherr/ThreatClassic2) now also uses the ingame API.
 
 ## How to use
 
